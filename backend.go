@@ -1,29 +1,32 @@
 package backend
 
 import (
-	"encoding/json"
+	_ "encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+
+	"google.golang.org/appengine"
+	"google.golang.org/appengine/urlfetch"
 )
 
 func init() {
-	http.HandleFunc("/json", jsonFunc)
+	http.HandleFunc("/test", test)
 }
 
-type Member struct {
-	Name, Address string
-}
+func test(w http.ResponseWriter, r *http.Request) {
 
-func jsonFunc(w http.ResponseWriter, r *http.Request) {
-	members := []Member{}
-	members = append(members, Member{"Andy", "Batubulan"})
-	members = append(members, Member{"Betty", "Ubud"})
-	members = append(members, Member{"Rian", "Celuk"})
+	if origin := r.Header.Get("Origin"); origin != "" {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		ctx := appengine.NewContext(r)
+		client := urlfetch.Client(ctx)
+		token := "https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=" + r.FormValue("idtoken")
+		resp, err := client.Get(token)
+		if err != nil {
+			log.Fatalf("Error Getting Token Info: %v", err)
+			return
+		}
 
-	memJ, err := json.Marshal(members)
-	if err != nil {
-		fmt.Fprintf(w, "Error parsing json: %v", err)
+		fmt.Fprintln(w, resp.Status)
 	}
-
-	fmt.Fprintln(w, string(memJ))
 }
