@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"google.golang.org/appengine"
 	//urlfetch digunakan untuk mengganti http.Get dan http.Post karena tidak didukung oleh app engine
 	"google.golang.org/appengine/datastore"
@@ -26,27 +27,35 @@ func init() {
 
 func test(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
+	//http.Get versi appengine
 	client := urlfetch.Client(ctx)
 	token := "https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=" + r.FormValue("idtoken")
-	//resp berisi JWT dan harus diparse untuk tahu apa isinya
+	//resp (Response) berisi respon dari google setelah di-autentikasi melalui tokeninfo
 	resp, err := client.Get(token)
 	if err != nil {
 		log.Errorf(ctx, "Error Getting Token Info: %v", err)
 		return
 	}
-
+	//hanya resp.Body yang dibaca dan sudah berisi string dari hasil autentikasi
+	//melalui tokeninfo (email, nama, dll)
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Errorf(ctx, "error reading body: %v", err)
 	}
+	//jangan lupa menutup resp.Body
+	resp.Body.Close()
 
+	//sekarang mengubah string yang diperoleh dari resp.Body ke JSON untuk mempermudah
+	//mengekstrak email yang akan digunakan untuk mengecek apakah sudah masuk staff
+	//atau belum
 	var dat map[string]string
 	if err := json.Unmarshal(b, &dat); err != nil {
 		panic(err)
 	}
-
+	//harus diset Header menjadi Access-Control-Allow-ORigin
 	if origin := r.Header.Get("Origin"); origin != "" {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
+		//Mencari di database alamat email
 		q := datastore.NewQuery("Staff").Filter("Email =", dat["email"])
 		var staf []Staff
 		_, err := q.GetAll(ctx, &staf)
@@ -56,10 +65,12 @@ func test(w http.ResponseWriter, r *http.Request) {
 		if len(staf) == 0 {
 			fmt.Fprintln(w, "Maaf Anda tidak terdaftar sebagai staf. Mohon hubungi Admin")
 		}
-
+		//Setelah ketemu, membuat respon untuk Ajax
 		for _, v := range staf {
-			fmt.Fprintln(w, "Selamat Datang, ", v.NamaLengkap)
-			fmt.Fprintln(w, string(Last100(r, v.Email)))
+			//fmt.Fprintln(w, "Selamat Datang, ", v.NamaLengkap)
+			//fmt.Fprintln(w, string(Last100(r, v.Email)))
+			//kirim token ke browser/aplikasi
+			fmt.Fprintln(w, CreateToken(w, v.Email))
 		}
 	}
 }
@@ -77,6 +88,19 @@ type KunjunganPasien struct {
 	Hide                                              bool
 }
 
+func CreateToken(w http.ResponseWriter, email string) string {
+	secret := []byte("aloha")
+	claims := &jwt.StandardClaims{
+		ExpiresAt: 60 * 60 * 12,
+		Issuer:    email,
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tok, err := token.SignedString(secret)
+	if err != nil {
+		fmt.Fprintln(w, err)
+	}
+	return tok
+}
 func Last100(r *http.Request, email string) []byte {
 	ctx := appengine.NewContext(r)
 	q := datastore.NewQuery("KunjunganPasien").Limit(100).Filter("Dokter =", email).Order("-JamDatang")
