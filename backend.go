@@ -25,43 +25,43 @@ type Staff struct {
 }
 
 func init() {
-	http.HandleFunc("/test", test)
-	http.HandleFunc("/testuser", testUser)
+	http.Handle("/test", cekToken(http.HandlerFunc(hello)))
+	// http.HandleFunc("/testuser", cekToken(testUser))
 }
 
-// func ambilKunci(w http.ResponseWriter, r *http.Request) {
-// 	key, _, err := getKey(r)
-// 	if err != nil {
-// 		fmt.Fprintf(w, "Error fetching file: %v", err)
-// 		return
-// 	}
-// 	fmt.Fprintf(w, "Key adalah: %v", key)
-// }
-func testUser(w http.ResponseWriter, r *http.Request) {
-	ctx := appengine.NewContext(r)
-	signKey, err := getKey(r)
-	if err != nil {
-		fmt.Fprintf(w, "Error Fetching key: %v", err)
-	}
-	kop := r.Header.Get("Authorization")
+// HTTP Middleware untuk mengecek token tiap ada request
+func cekToken(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := appengine.NewContext(r)
+		signKey, err := getKey(r)
 
-	token, err := jwt.Parse(kop, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		if err != nil {
+			log.Errorf(ctx, "Error Fetching Key form Bucket: %v", err)
+			return
 		}
-		return signKey, nil
+
+		kop := r.Header.Get("Authorization")
+
+		token, err := jwt.Parse(kop, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			}
+			return signKey, nil
+		})
+
+		if err != nil {
+			log.Errorf(ctx, "Sessions Expired: %v", err)
+			http.RedirectHandler("https://www.google.co.id", 303)
+			return
+		}
+		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+			log.Infof(ctx, "Token Worked, issuer: %v", claims["iss"])
+		} else {
+			log.Errorf(ctx, "Token not working")
+		}
+
+		next.ServeHTTP(w, r)
 	})
-	//buat fungsi untuk handle token expired, somehow token is expired
-	if err != nil {
-		log.Errorf(ctx, "Error validating token: %v", err)
-		return
-	}
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		log.Errorf(ctx, "Token Worked, issuer: %v", claims["iss"])
-	} else {
-		log.Errorf(ctx, "Token not working")
-	}
-	log.Errorf(ctx, "Isi header : %v", kop)
 }
 
 //fungsi ini mengambil secret key di cloud storage
@@ -127,7 +127,9 @@ func makeKey(r *http.Request) []byte {
 	}
 	return key
 }
-
+func hello(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "Hello World")
+}
 func test(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	//http.Get versi appengine
@@ -177,8 +179,6 @@ func test(w http.ResponseWriter, r *http.Request) {
 		// }
 		//Setelah ketemu, membuat respon untuk Ajax
 		for _, v := range staf {
-			//fmt.Fprintln(w, "Selamat Datang, ", v.NamaLengkap)
-			//fmt.Fprintln(w, string(Last100(r, v.Email)))
 			//kirim token ke browser/aplikasi
 			fmt.Fprintln(w, CreateToken(w, r, v.Email))
 		}
@@ -280,66 +280,3 @@ func GetDataPts(r *http.Request, k *datastore.Key) (no, nama string) {
 	nama = p.NamaPasien
 	return no, nama
 }
-
-// func GetListPasien(r *http.Request, email string, m, y int) []ListPasien {
-// 	ctx := appengine.NewContext(r)
-// 	monIn := DatebyInt(m, y)
-// 	q := datastore.NewQuery("KunjunganPasien").Filter("Dokter =", email).Filter("Hide =", false).Order("-JamDatang")
-// 	list := IterateList(ctx, w, q, monIn)
-// 	return list
-// }
-//
-// func IterateList(ctx appengine.Context, w http.ResponseWriter, q *datastore.Query, mon time.Time) []ListPasien {
-// 	t := q.Run(ctx)
-// 	monAf := mon.AddDate(0, 1, 0)
-// 	var daf KunjunganPasien
-// 	var tar ListPasien
-// 	var pts DataPasien
-// 	var list []ListPasien
-// 	for {
-// 		k, err := t.Next(&daf)
-// 		if err == datastore.Done {
-// 			break
-// 		}
-// 		if err != nil {
-// 			fmt.Fprintln(w, "Error Fetching Data: ", err)
-// 		}
-// 		daf.JamDatang = daf.JamDatang.Add(time.Duration(8) * time.Hour)
-// 		jam := UbahTanggal(daf.JamDatang, daf.ShiftJaga)
-// 		if jam.After(monAf) == true {
-// 			continue
-// 		}
-// 		if jam.Before(mon) == true {
-// 			break
-// 		}
-// 		if daf.Hide == true {
-// 			continue
-// 		}
-// 		tar.TanggalFinal = jam.Format("02-01-2006")
-//
-// 		nocm := k.Parent()
-// 		tar.NomorCM = nocm.StringID()
-//
-// 		err = datastore.Get(ctx, nocm, &pts)
-// 		if err != nil {
-// 			fmt.Fprintln(w, "Error Fetching Data Pasien: ", err)
-// 		}
-//
-// 		tar.NamaPasien = ProperTitle(pts.NamaPasien)
-// 		tar.Diagnosis = ProperTitle(daf.Diagnosis)
-// 		tar.ShiftJaga = daf.ShiftJaga
-// 		tar.LinkID = k.Encode()
-//
-// 		if daf.GolIKI == "1" {
-// 			tar.IKI1 = "1"
-// 			tar.IKI2 = ""
-// 		} else {
-// 			tar.IKI1 = ""
-// 			tar.IKI2 = "1"
-// 		}
-//
-// 		list = append(list, tar)
-// 	}
-//
-// 	return list
-// }
