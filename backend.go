@@ -1,11 +1,14 @@
 package backend
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"cloud.google.com/go/storage"
 
 	"github.com/dgrijalva/jwt-go"
 	"google.golang.org/appengine"
@@ -23,6 +26,106 @@ type Staff struct {
 
 func init() {
 	http.HandleFunc("/test", test)
+	http.HandleFunc("/testuser", testUser)
+}
+
+// func ambilKunci(w http.ResponseWriter, r *http.Request) {
+// 	key, _, err := getKey(r)
+// 	if err != nil {
+// 		fmt.Fprintf(w, "Error fetching file: %v", err)
+// 		return
+// 	}
+// 	fmt.Fprintf(w, "Key adalah: %v", key)
+// }
+func testUser(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	signKey, err := getKey(r)
+	if err != nil {
+		fmt.Fprintf(w, "Error Fetching key: %v", err)
+	}
+	kop := r.Header.Get("Authorization")
+
+	token, err := jwt.Parse(kop, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+		return signKey, nil
+	})
+	//buat fungsi untuk handle token expired, somehow token is expired
+	if err != nil {
+		log.Errorf(ctx, "Error validating token: %v", err)
+		return
+	}
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		log.Errorf(ctx, "Token Worked, issuer: %v", claims["iss"])
+	} else {
+		log.Errorf(ctx, "Token not working")
+	}
+	log.Errorf(ctx, "Isi header : %v", kop)
+}
+
+//fungsi ini mengambil secret key di cloud storage
+//sekaligus mengecek apakah kuncinya update
+//
+func getKey(r *http.Request) ([]byte, error) {
+	//buat context untuk akses cloud storage
+	ctx := appengine.NewContext(r)
+	//buat client dari context untuk akses cloud storage
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// harus buat object untuk akses bucket
+	obj := client.Bucket("igdsanglah").Object("secretkey")
+	// cek atribut Created
+	atrib, err := obj.Attrs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// jika Created sudah lebih dari 1 bulan, akan dibuat secretkey
+	// yang baru
+	if skrn := time.Now().After(atrib.Created.AddDate(0, 1, 0)); skrn == true {
+		wc := obj.NewWriter(ctx)
+		if _, err := wc.Write(makeKey(r)); err != nil {
+			return nil, err
+		}
+		if err = wc.Close(); err != nil {
+			return nil, err
+		}
+	}
+	// membaca secret key dari cloud storage
+	rc, err := obj.NewReader(ctx)
+	// jika tidak ada secretkey, akan dibuat yang baru
+	if err != nil {
+		wc := obj.NewWriter(ctx)
+		if _, err := wc.Write(makeKey(r)); err != nil {
+			return nil, err
+		}
+		if err = wc.Close(); err != nil {
+			return nil, err
+		}
+	}
+	// membaca secret key yang sudah diperoleh
+	key, err := ioutil.ReadAll(rc)
+	if err != nil {
+		return nil, err
+	}
+	// jangan lupa close file
+	defer rc.Close()
+	// mengembalikan secret key dan error (klo ada)
+	return key, nil
+}
+
+// fungsi untuk membuat secret key yang nantinya akan disimpan
+// di cloud storage
+func makeKey(r *http.Request) []byte {
+	key := make([]byte, 64)
+	ctx := appengine.NewContext(r)
+	_, err := rand.Read(key)
+	if err != nil {
+		log.Errorf(ctx, "Error creating random number: %v", err)
+	}
+	return key
 }
 
 func test(w http.ResponseWriter, r *http.Request) {
@@ -52,6 +155,7 @@ func test(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(b, &dat); err != nil {
 		panic(err)
 	}
+
 	//harus diset Header menjadi Access-Control-Allow-ORigin
 	if origin := r.Header.Get("Origin"); origin != "" {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -65,12 +169,18 @@ func test(w http.ResponseWriter, r *http.Request) {
 		if len(staf) == 0 {
 			fmt.Fprintln(w, "Maaf Anda tidak terdaftar sebagai staf. Mohon hubungi Admin")
 		}
+
+		// key, err := getKey(r)
+		// if err != nil {
+		// 	log.Errorf(ctx, "Error reading to bucket: %v", err)
+		// 	return
+		// }
 		//Setelah ketemu, membuat respon untuk Ajax
 		for _, v := range staf {
 			//fmt.Fprintln(w, "Selamat Datang, ", v.NamaLengkap)
 			//fmt.Fprintln(w, string(Last100(r, v.Email)))
 			//kirim token ke browser/aplikasi
-			fmt.Fprintln(w, CreateToken(w, v.Email))
+			fmt.Fprintln(w, CreateToken(w, r, v.Email))
 		}
 	}
 }
@@ -88,10 +198,18 @@ type KunjunganPasien struct {
 	Hide                                              bool
 }
 
-func CreateToken(w http.ResponseWriter, email string) string {
-	secret := []byte("aloha")
+//fungsi untuk membuat token, token diambil dari cloud store, kemudian
+//digunakan dalam metode jwt untuk menghasilkan token. nantinya secret
+//di cloud store akan diupdate setiap bulan
+func CreateToken(w http.ResponseWriter, r *http.Request, email string) string {
+	//mengambil secretkey dari cloud storage
+	secret, err := getKey(r)
+	if err != nil {
+		fmt.Fprintf(w, "Error Fetching Bucket: %v", err)
+	}
 	claims := &jwt.StandardClaims{
-		ExpiresAt: 60 * 60 * 12,
+		//mengeset expiration date untuk token
+		ExpiresAt: time.Now().Add(time.Hour * 12).Unix(),
 		Issuer:    email,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -101,6 +219,7 @@ func CreateToken(w http.ResponseWriter, email string) string {
 	}
 	return tok
 }
+
 func Last100(r *http.Request, email string) []byte {
 	ctx := appengine.NewContext(r)
 	q := datastore.NewQuery("KunjunganPasien").Limit(100).Filter("Dokter =", email).Order("-JamDatang")
