@@ -25,8 +25,8 @@ type Staff struct {
 }
 
 func init() {
-	http.Handle("/test", cekToken(http.HandlerFunc(hello)))
-	// http.HandleFunc("/testuser", cekToken(testUser))
+	http.Handle("/testuser", cekToken(http.HandlerFunc(hello)))
+	http.HandleFunc("/test", test)
 }
 
 // HTTP Middleware untuk mengecek token tiap ada request
@@ -161,6 +161,9 @@ func test(w http.ResponseWriter, r *http.Request) {
 	//harus diset Header menjadi Access-Control-Allow-ORigin
 	if origin := r.Header.Get("Origin"); origin != "" {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers",
+			"Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 		//Mencari di database alamat email
 		q := datastore.NewQuery("Staff").Filter("Email =", dat["email"])
 		var staf []Staff
