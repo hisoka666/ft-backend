@@ -51,6 +51,7 @@ func cekToken(next http.Handler) http.Handler {
 
 		if err != nil {
 			log.Errorf(ctx, "Sessions Expired: %v", err)
+			//todo: fungsi untuk kembali ke halaman awal
 			http.RedirectHandler("https://www.google.co.id", 303)
 			return
 		}
@@ -134,7 +135,7 @@ func test(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	//http.Get versi appengine
 	client := urlfetch.Client(ctx)
-	token := "https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=" + r.FormValue("idtoken")
+	token := "https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=" + r.FormValue("token")
 	//resp (Response) berisi respon dari google setelah di-autentikasi melalui tokeninfo
 	resp, err := client.Get(token)
 	if err != nil {
@@ -182,8 +183,14 @@ func test(w http.ResponseWriter, r *http.Request) {
 		// }
 		//Setelah ketemu, membuat respon untuk Ajax
 		for _, v := range staf {
+			mapD := map[string]string{"token": CreateToken(w, r, v.Email)}
+			tok, _ := json.Marshal(mapD)
+			// log.Infof(ctx, string(tok))
 			//kirim token ke browser/aplikasi
-			fmt.Fprintln(w, CreateToken(w, r, v.Email))
+			// fmt.Fprintln(w, string(CreateToken(w, r, v.Email)))
+			// kirim JSON data memiliki syntax berbeda dengan write biasa
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(tok)
 		}
 	}
 }
