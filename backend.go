@@ -1,21 +1,19 @@
-package backend
+package ft
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"ft"
 	"io/ioutil"
 	"net/http"
 	"time"
 
-	"cloud.google.com/go/storage"
-
-	"github.com/dgrijalva/jwt-go"
 	"google.golang.org/appengine"
 	//urlfetch digunakan untuk mengganti http.Get dan http.Post karena tidak didukung oleh app engine
 	"google.golang.org/appengine/datastore"
 	"google.golang.org/appengine/log"
 	"google.golang.org/appengine/urlfetch"
+	"google.golang.org/appengine/user"
 )
 
 type Staff struct {
@@ -24,113 +22,46 @@ type Staff struct {
 	LinkID      string
 }
 
+type EntriPasien struct {
+	Tgl       string `json:"tgl"`
+	Jaga      string `json:"shift"`
+	NoCM      string `json:"nocm"`
+	NamaPts   string `json:"nama"`
+	Diagnosis string `json:"diag"`
+	IKI       string `json:"iki"`
+	Entri     string `json:"id"`
+}
+
+type TokenResp struct {
+	Token []string `json:"token"`
+	//Ent []EntriPasien `json:"list"`
+}
+
+type EntriList struct {
+	List []EntriPasien `json:"list"`
+}
+
+type EntriResp struct {
+	Ent *EntriList `json:"ent"`
+}
+type Resp struct {
+	Resp *TokenResp `json:"resp"`
+}
+type DataPasien struct {
+	NamaPasien, NomorCM, JenKel, Alamat string
+	TglDaftar, Umur                     time.Time
+}
+type KunjunganPasien struct {
+	Diagnosis, LinkID, GolIKI, ATS, ShiftJaga, Dokter string
+	JamDatang, JamDatangRiil                          time.Time
+	Hide                                              bool
+}
+
 func init() {
-	http.Handle("/testuser", cekToken(http.HandlerFunc(hello)))
+	http.Handle("/testuser", ft.CekToken(http.HandlerFunc(hello)))
 	http.HandleFunc("/test", test)
 }
 
-// HTTP Middleware untuk mengecek token tiap ada request
-func cekToken(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := appengine.NewContext(r)
-		signKey, err := getKey(r)
-
-		if err != nil {
-			log.Errorf(ctx, "Error Fetching Key form Bucket: %v", err)
-			return
-		}
-
-		kop := r.Header.Get("Authorization")
-
-		token, err := jwt.Parse(kop, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-			}
-			return signKey, nil
-		})
-
-		if err != nil {
-			log.Errorf(ctx, "Sessions Expired: %v", err)
-			//todo: fungsi untuk kembali ke halaman awal
-			http.RedirectHandler("https://www.google.co.id", 303)
-			return
-		}
-		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			log.Infof(ctx, "Token Worked, issuer: %v", claims["iss"])
-		} else {
-			log.Errorf(ctx, "Token not working")
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-//fungsi ini mengambil secret key di cloud storage
-//sekaligus mengecek apakah kuncinya update
-//
-func getKey(r *http.Request) ([]byte, error) {
-	//buat context untuk akses cloud storage
-	ctx := appengine.NewContext(r)
-	//buat client dari context untuk akses cloud storage
-	client, err := storage.NewClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// harus buat object untuk akses bucket
-	obj := client.Bucket("igdsanglah").Object("secretkey")
-	// cek atribut Created
-	atrib, err := obj.Attrs(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// jika Created sudah lebih dari 1 bulan, akan dibuat secretkey
-	// yang baru
-	if skrn := time.Now().After(atrib.Created.AddDate(0, 1, 0)); skrn == true {
-		wc := obj.NewWriter(ctx)
-		if _, err := wc.Write(makeKey(r)); err != nil {
-			return nil, err
-		}
-		if err = wc.Close(); err != nil {
-			return nil, err
-		}
-	}
-	// membaca secret key dari cloud storage
-	rc, err := obj.NewReader(ctx)
-	// jika tidak ada secretkey, akan dibuat yang baru
-	if err != nil {
-		wc := obj.NewWriter(ctx)
-		if _, err := wc.Write(makeKey(r)); err != nil {
-			return nil, err
-		}
-		if err = wc.Close(); err != nil {
-			return nil, err
-		}
-	}
-	// membaca secret key yang sudah diperoleh
-	key, err := ioutil.ReadAll(rc)
-	if err != nil {
-		return nil, err
-	}
-	// jangan lupa close file
-	defer rc.Close()
-	// mengembalikan secret key dan error (klo ada)
-	return key, nil
-}
-
-// fungsi untuk membuat secret key yang nantinya akan disimpan
-// di cloud storage
-func makeKey(r *http.Request) []byte {
-	key := make([]byte, 64)
-	ctx := appengine.NewContext(r)
-	_, err := rand.Read(key)
-	if err != nil {
-		log.Errorf(ctx, "Error creating random number: %v", err)
-	}
-	return key
-}
-func hello(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Hello World")
-}
 func test(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	//http.Get versi appengine
@@ -161,6 +92,7 @@ func test(w http.ResponseWriter, r *http.Request) {
 
 	//harus diset Header menjadi Access-Control-Allow-ORigin
 	if origin := r.Header.Get("Origin"); origin != "" {
+		log.Infof(ctx, origin)
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		w.Header().Set("Access-Control-Allow-Headers",
@@ -173,64 +105,60 @@ func test(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, "Error Fetching Data: ", err)
 		}
 		if len(staf) == 0 {
-			fmt.Fprintln(w, "Maaf Anda tidak terdaftar sebagai staf. Mohon hubungi Admin")
+			w.Header().Set("Content-Type", "application/json")
+			reply := CreateJSON("no-access")
+			w.Write(reply)
+			return
 		}
 
-		// key, err := getKey(r)
-		// if err != nil {
-		// 	log.Errorf(ctx, "Error reading to bucket: %v", err)
-		// 	return
-		// }
 		//Setelah ketemu, membuat respon untuk Ajax
 		for _, v := range staf {
-			mapD := map[string]string{"token": CreateToken(w, r, v.Email)}
-			tok, _ := json.Marshal(mapD)
-			// log.Infof(ctx, string(tok))
-			//kirim token ke browser/aplikasi
-			// fmt.Fprintln(w, string(CreateToken(w, r, v.Email)))
-			// kirim JSON data memiliki syntax berbeda dengan write biasa
+			tok := CreateJSON(ft.CreateToken(w, r, v.Email))
+			log.Infof(ctx, string(tok))
 			w.Header().Set("Content-Type", "application/json")
 			w.Write(tok)
+
 		}
 	}
 }
 
-type EntriPasien struct {
-	Tgl, Jaga, NoCM, NamaPts, Diagnosis, IKI, Entri string
-}
-type DataPasien struct {
-	NamaPasien, NomorCM, JenKel, Alamat string
-	TglDaftar, Umur                     time.Time
-}
-type KunjunganPasien struct {
-	Diagnosis, LinkID, GolIKI, ATS, ShiftJaga, Dokter string
-	JamDatang, JamDatangRiil                          time.Time
-	Hide                                              bool
-}
+func CreateJSON(token string) []byte {
+	m := &TokenResp{
+		Token: []string{token},
+	}
 
-//fungsi untuk membuat token, token diambil dari cloud store, kemudian
-//digunakan dalam metode jwt untuk menghasilkan token. nantinya secret
-//di cloud store akan diupdate setiap bulan
-func CreateToken(w http.ResponseWriter, r *http.Request, email string) string {
-	//mengambil secretkey dari cloud storage
-	secret, err := getKey(r)
-	if err != nil {
-		fmt.Fprintf(w, "Error Fetching Bucket: %v", err)
+	r := &Resp{
+		Resp: m,
 	}
-	claims := &jwt.StandardClaims{
-		//mengeset expiration date untuk token
-		ExpiresAt: time.Now().Add(time.Hour * 12).Unix(),
-		Issuer:    email,
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tok, err := token.SignedString(secret)
-	if err != nil {
-		fmt.Fprintln(w, err)
-	}
-	return tok
-}
 
-func Last100(r *http.Request, email string) []byte {
+	res, _ := json.Marshal(r)
+
+	return res
+}
+func hello(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	u := user.Current(ctx)
+	log.Infof(ctx, u.Email)
+	result := Last100(r, u.Email)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(CreateJSONList(result))
+}
+func CreateJSONList(n []EntriPasien) []byte {
+	m := &EntriList{
+		List: n,
+	}
+
+	r := &EntriResp{
+		Ent: m,
+	}
+
+	res, _ := json.Marshal(r)
+
+	return res
+
+}
+func Last100(r *http.Request, email string) []EntriPasien {
 	ctx := appengine.NewContext(r)
 	q := datastore.NewQuery("KunjunganPasien").Limit(100).Filter("Dokter =", email).Order("-JamDatang")
 	var m []EntriPasien
@@ -260,11 +188,11 @@ func Last100(r *http.Request, email string) []byte {
 		m = append(m, *n)
 	}
 
-	jsm, err := json.Marshal(m)
-	if err != nil {
-		log.Errorf(ctx, "error marshalling json: %v", err)
-	}
-	return jsm
+	// jsm, err := json.Marshal(m)
+	// if err != nil {
+	// 	log.Errorf(ctx, "error marshalling json: %v", err)
+	// }
+	return m
 }
 
 func UbahTanggal(tgl time.Time, shift string) string {
