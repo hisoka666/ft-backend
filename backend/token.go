@@ -1,4 +1,4 @@
-package ft
+package backend
 
 import (
 	"crypto/rand"
@@ -9,6 +9,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/dgrijalva/jwt-go"
+	"golang.org/x/net/context"
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/log"
 )
@@ -18,7 +19,7 @@ import (
 func CekToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := appengine.NewContext(r)
-		signKey, err := GetKey(r)
+		signKey, err := GetKey(ctx)
 		//*email = ""
 
 		if err != nil {
@@ -56,11 +57,11 @@ func CekToken(next http.Handler) http.Handler {
 //fungsi untuk membuat token, token diambil dari cloud store, kemudian
 //digunakan dalam metode jwt untuk menghasilkan token. nantinya secret
 //di cloud store akan diupdate setiap bulan
-func CreateToken(w http.ResponseWriter, r *http.Request, email string) string {
+func CreateToken(ctx context.Context, email string) string {
 	//mengambil secretkey dari cloud storage
-	secret, err := GetKey(r)
+	secret, err := GetKey(ctx)
 	if err != nil {
-		fmt.Fprintf(w, "Error Fetching Bucket: %v", err)
+		LogError(ctx, err)
 	}
 	claims := &jwt.StandardClaims{
 		//mengeset expiration date untuk token
@@ -70,7 +71,7 @@ func CreateToken(w http.ResponseWriter, r *http.Request, email string) string {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tok, err := token.SignedString(secret)
 	if err != nil {
-		fmt.Fprintln(w, err)
+		LogError(ctx, err)
 	}
 	return tok
 }
@@ -78,9 +79,9 @@ func CreateToken(w http.ResponseWriter, r *http.Request, email string) string {
 //fungsi ini mengambil secret key di cloud storage
 //sekaligus mengecek apakah kuncinya update
 //
-func GetKey(r *http.Request) ([]byte, error) {
+func GetKey(ctx context.Context) ([]byte, error) {
 	//buat context untuk akses cloud storage
-	ctx := appengine.NewContext(r)
+	// ctx := appengine.NewContext(r)
 	//buat client dari context untuk akses cloud storage
 	client, err := storage.NewClient(ctx)
 	if err != nil {
@@ -97,7 +98,7 @@ func GetKey(r *http.Request) ([]byte, error) {
 	// yang baru
 	if skrn := time.Now().After(atrib.Created.AddDate(0, 1, 0)); skrn == true {
 		wc := obj.NewWriter(ctx)
-		if _, err := wc.Write(MakeKey(r)); err != nil {
+		if _, err := wc.Write(MakeKey(ctx)); err != nil {
 			return nil, err
 		}
 		if err = wc.Close(); err != nil {
@@ -109,7 +110,7 @@ func GetKey(r *http.Request) ([]byte, error) {
 	// jika tidak ada secretkey, akan dibuat yang baru
 	if err != nil {
 		wc := obj.NewWriter(ctx)
-		if _, err := wc.Write(MakeKey(r)); err != nil {
+		if _, err := wc.Write(MakeKey(ctx)); err != nil {
 			return nil, err
 		}
 		if err = wc.Close(); err != nil {
@@ -129,9 +130,9 @@ func GetKey(r *http.Request) ([]byte, error) {
 
 // fungsi untuk membuat secret key yang nantinya akan disimpan
 // di cloud storage
-func MakeKey(r *http.Request) []byte {
+func MakeKey(ctx context.Context) []byte {
 	key := make([]byte, 64)
-	ctx := appengine.NewContext(r)
+	// ctx := appengine.NewContext(r)
 	_, err := rand.Read(key)
 	if err != nil {
 		log.Errorf(ctx, "Error creating random number: %v", err)
