@@ -1,13 +1,13 @@
 package backend
 
-import(
+import (
 	"time"
 )
 
 type WebView struct {
-	Token    string    `json:"token"`
-	User     string    `json:"user"`
-	Pasien   []Pasien  `json:"pasien"`
+	Token  string   `json:"token"`
+	User   string   `json:"user"`
+	Pasien []Pasien `json:"pasien"`
 	//IKI      []List    `json:"list"`
 }
 
@@ -25,10 +25,10 @@ type Pasien struct {
 
 //Ini untuk menyimpan jumlah iki yang diperoleh
 type List struct {
-	TglJaga      string `json:"tgl"`
+	TglJaga string `json:"tgl"`
 	//ShiftJaga    string `json:"shift"`
-	SumIKI1         string `json:"iki1"`
-	SumIKI2         string `json:"iki2"`
+	SumIKI1 string `json:"iki1"`
+	SumIKI2 string `json:"iki2"`
 }
 
 type KunjunganPasien struct {
@@ -43,4 +43,14 @@ type KunjunganPasien struct {
 type DataPasien struct {
 	NamaPasien, NomorCM, JenKel, Alamat string
 	TglDaftar, Umur                     time.Time
+}
+
+type Kursor struct {
+	Point string
+}
+
+type NavBar struct {
+	Token  string   `json:"token"`
+	User   string   `json:"user"`
+	Bulan    []string `json:"bulan"`
 }
