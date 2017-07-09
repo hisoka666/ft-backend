@@ -16,6 +16,8 @@ import (
 
 func init() {
 	http.HandleFunc("/login", login)
+	// http.Handle("/getmain", ft.CekToken(http.HandlerFunc(homePage)))
+	// http.HandleFunc("/getmain", mainPage)
 }
 
 func logError(c context.Context, e error) {
@@ -23,43 +25,44 @@ func logError(c context.Context, e error) {
 	log.Errorf(c, "Error is: %v", e)
 	return
 }
-func mainPage(w http.ResponseWriter, r *http.Request) {
-	token := "https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=" + r.FormValue("token")
-	ctx := appengine.NewContext(r)
-	// log.Infof(ctx, "Token adalah: %v", r.FormValue("token"))
-	client := urlfetch.Client(ctx)
 
-	resp, err := client.Get(token)
-	if err != nil {
-		logError(ctx, err)
-	}
+// func homePage(w http.ResponseWriter, r *http.Request, email string) {
+// 	// token := "https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=" + r.FormValue("token")
+// 	// ctx := appengine.NewContext(r)
+// 	// // log.Infof(ctx, "Token adalah: %v", r.FormValue("token"))
+// 	// client := urlfetch.Client(ctx)
 
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		logError(ctx, err)
-	}
-	resp.Body.Close()
+// 	// resp, err := client.Get(token)
+// 	// if err != nil {
+// 	// 	logError(ctx, err)
+// 	// }
 
-	var dat map[string]string
-	if err := json.Unmarshal(b, &dat); err != nil {
-		logError(ctx, err)
-		return
-	}
+// 	// b, err := ioutil.ReadAll(resp.Body)
+// 	// if err != nil {
+// 	// 	logError(ctx, err)
+// 	// }
+// 	// resp.Body.Close()
 
-	log.Infof(ctx, dat["email"])
+// 	// var dat map[string]string
+// 	// if err := json.Unmarshal(b, &dat); err != nil {
+// 	// 	logError(ctx, err)
+// 	// 	return
+// 	// }
 
-	user, token := ft.CekStaff(ctx, dat["email"])
+// 	// log.Infof(ctx, dat["email"])
 
-	if user == "no-access" {
-		fmt.Fprintln(w, "no-access")
-	} else {
-		web := ft.GetMainContent(ctx, user, token, dat["email"])
-		js := ft.ConvertJSON(web)
-		log.Infof(ctx, string(js))
-		json.NewEncoder(w).Encode(web)
+// 	// user, token := ft.CekStaff(ctx, dat["email"])
 
-	}
-}
+// 	// if user == "no-access" {
+// 	// 	fmt.Fprintln(w, "no-access")
+// 	// } else {
+// 	web := ft.GetMainContent(ctx, user, token, email)
+// 	js := ft.ConvertJSON(web)
+// 	log.Infof(ctx, string(js))
+// 	json.NewEncoder(w).Encode(web)
+
+// 	// }
+// }
 
 func login(w http.ResponseWriter, r *http.Request) {
 	token := "https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=" + r.FormValue("token")
@@ -91,8 +94,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 	if user == "no-access" {
 		fmt.Fprintln(w, "no-access")
 	} else {
-		userkey := ft.UserKey(ctx, dat["email"])
-		web := ft.GetBulan(ctx, token, user, userkey)
+		web := ft.GetMainContent(ctx, user, token, dat["email"])
 		js := ft.ConvertJSON(web)
 		log.Infof(ctx, string(js))
 		json.NewEncoder(w).Encode(web)

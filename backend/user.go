@@ -32,10 +32,11 @@ func CekStaff(ctx context.Context, email string) (user string, token string) {
 	return user, token
 }
 
-func GetMainContent(c context.Context, user, token, email string) *WebView {
-	web := &WebView{
+func GetMainContent(c context.Context, user, token, email string) *MainView {
+	web := &MainView{
 		Token:  token,
 		User:   user,
+		Bulan:  GetBulan(c, UserKey(c, email)),
 		Pasien: GetLast100(c, email),
 	}
 	return web
@@ -47,7 +48,7 @@ func UserKey(c context.Context, email string) *datastore.Key {
 	return parKey
 }
 
-func GetBulan(c context.Context, token, user string, k *datastore.Key) *NavBar {
+func GetBulan(c context.Context, k *datastore.Key) []string {
 	kur := []Kursor{}
 
 	q := datastore.NewQuery("Kursor").Ancestor(k)
@@ -67,13 +68,13 @@ func GetBulan(c context.Context, token, user string, k *datastore.Key) *NavBar {
 		list[i], list[j] = list[j], list[i]
 	}
 
-    nav := &NavBar{
-		Token: token,
-		User: user,
-		Bulan: list,
-	}
-	
-	return nav
+	// nav := &NavBar{
+	// 	Token: token,
+	// 	User: user,
+	// 	Bulan: list,
+	// }
+
+	return list
 
 }
 

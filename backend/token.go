@@ -40,7 +40,8 @@ func CekToken(next http.Handler) http.Handler {
 		if err != nil {
 			log.Errorf(ctx, "Sessions Expired: %v", err)
 			//todo: fungsi untuk kembali ke halaman awal
-			http.RedirectHandler("http://localhost:4200/login", 303)
+			// http.RedirectHandler("http://localhost:9090", 303)
+			fmt.Fprintln(w, "token-expired")
 			return
 		}
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
@@ -48,6 +49,8 @@ func CekToken(next http.Handler) http.Handler {
 			//&email = claims["iss"]
 		} else {
 			log.Errorf(ctx, "Token not working")
+			fmt.Fprintln(w, "token-not-working")
+			return
 		}
 		//email := claims["iss"]
 		next.ServeHTTP(w, r)

@@ -4,9 +4,10 @@ import (
 	"time"
 )
 
-type WebView struct {
+type MainView struct {
 	Token  string   `json:"token"`
 	User   string   `json:"user"`
+	Bulan  []string `json:"bulan"`
 	Pasien []Pasien `json:"pasien"`
 	//IKI      []List    `json:"list"`
 }
