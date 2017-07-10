@@ -115,6 +115,19 @@ func GetDataPts(c context.Context, k *datastore.Key) (no, nama string) {
 	return no, nama
 }
 
+func GetNamaByNoCM(c context.Context, nocm string) DataPasien {
+	var pts DataPasien
+	parKey := datastore.NewKey(c, "IGD", "fasttrack", 0, nil)
+	ptsKey := datastore.NewKey(c, "DataPasien", nocm, 0, parKey)
+
+	err := datastore.Get(c, ptsKey, &pts)
+	if err != nil && err == datastore.ErrNoSuchEntity {
+		return "data-not-available"
+	}
+
+	return pts
+}
+
 func GetListIKI(pts []Pasien, m, y int) []List {
 	for i, j := 0, len(pts)-1; i < j; i, j = i+1, j-1 {
 		pts[i], pts[j] = pts[j], pts[i]
@@ -152,67 +165,3 @@ func GetListIKI(pts []Pasien, m, y int) []List {
 
 	return ikiBulan
 }
-
-// func GetListPasien(c context.Context, email string, m, y int) []Pasien {
-// 	// ctx := appengine.NewContext(r)
-// 	// email, _, _ := AppCtx(ctx, "", "", "", "")
-// 	monIn := DatebyInt(m, y)
-// 	q := datastore.NewQuery("KunjunganPasien").Filter("Dokter =", email).Filter("Hide =", false).Order("-JamDatang")
-// 	list := IterateList(c, w, q, monIn)
-// 	return list
-// }
-
-// func IterateList(c context.Context, w http.ResponseWriter, q *datastore.Query, mon time.Time) []ListPasien {
-// 	t := q.Run(c)
-// 	monAf := mon.AddDate(0, 1, 0)
-// 	var daf KunjunganPasien
-// 	var tar Pasien
-// 	// var pts DataPasien
-// 	var list []Pasien
-// 	for {
-// 		k, err := t.Next(&daf)
-// 		if err == datastore.Done {
-// 			break
-// 		}
-// 		if err != nil {
-// 			fmt.Fprintln(w, "Error Fetching Data: ", err)
-// 		}
-// 		daf.JamDatang = daf.JamDatang.Add(time.Duration(8) * time.Hour)
-// 		jam := UbahTanggal(daf.JamDatang, daf.ShiftJaga)
-// 		if jam.After(monAf) == true {
-// 			continue
-// 		}
-// 		if jam.Before(mon) == true {
-// 			break
-// 		}
-// 		if daf.Hide == true {
-// 			continue
-// 		}
-// 		tar.TanggalFinal = jam.Format("02-01-2006")
-
-// 		nocm := k.Parent()
-// 		tar.NomorCM = nocm.StringID()
-
-// 		err = datastore.Get(ctx, nocm, &pts)
-// 		if err != nil {
-// 			fmt.Fprintln(w, "Error Fetching Data Pasien: ", err)
-// 		}
-
-// 		tar.NamaPasien = ProperTitle(pts.NamaPasien)
-// 		tar.Diagnosis = ProperTitle(daf.Diagnosis)
-// 		tar.ShiftJaga = daf.ShiftJaga
-// 		tar.LinkID = k.Encode()
-
-// 		if daf.GolIKI == "1" {
-// 			tar.IKI1 = "1"
-// 			tar.IKI2 = ""
-// 		} else {
-// 			tar.IKI1 = ""
-// 			tar.IKI2 = "1"
-// 		}
-
-// 		list = append(list, tar)
-// 	}
-
-// 	return list
-// }

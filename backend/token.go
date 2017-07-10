@@ -23,7 +23,8 @@ func CekToken(next http.Handler) http.Handler {
 		//*email = ""
 
 		if err != nil {
-			log.Errorf(ctx, "Error Fetching Key form Bucket: %v", err)
+			LogError(ctx, err)
+			// log.Errorf(ctx, "Error Fetching Key form Bucket: %v", err)
 			return
 		}
 
@@ -41,6 +42,7 @@ func CekToken(next http.Handler) http.Handler {
 			log.Errorf(ctx, "Sessions Expired: %v", err)
 			//todo: fungsi untuk kembali ke halaman awal
 			// http.RedirectHandler("http://localhost:9090", 303)
+			LogError(ctx, err)
 			fmt.Fprintln(w, "token-expired")
 			return
 		}

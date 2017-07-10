@@ -22,15 +22,7 @@ type Pasien struct {
 	IKI1         string `json:"iki1"`
 	IKI2         string `json:"iki2"`
 	LinkID       string `json:"link"`
-}
-
-type DataPasien struct {
-	NamaPasien   string    `json:"nama"`
-	NomorCM      string    `json:"nocm"`
-	JenKel       string    `json:"jk"`
-	Alamat       string    `json:"alamat"`
-	TglDaftar    time.Time `json:"tgldaf"`
-	Umur         time.Time `json:"umur"`
+	Baru         bool   `json:"baru"`
 }
 
 //Ini untuk menyimpan jumlah iki yang diperoleh
@@ -48,6 +40,7 @@ type KunjunganPasien struct {
 	Dokter                 string
 	Hide                   bool
 	JamDatangRiil          time.Time
+	Bagian                 string
 }
 
 type DataPasien struct {
@@ -60,7 +53,17 @@ type Kursor struct {
 }
 
 type NavBar struct {
-	Token  string   `json:"token"`
-	User   string   `json:"user"`
-	Bulan    []string `json:"bulan"`
+	Token string   `json:"token"`
+	User  string   `json:"user"`
+	Bulan []string `json:"bulan"`
+}
+
+type TokenError struct {
+	ErrorTok string `json:"errtok"`
+}
+
+type InputPts struct {
+	Baru     bool     `json:"baru"`
+	Datapasien        `json:"datapts"`
+	KunjunganPasien   `json:"kunjungan"`
 }
