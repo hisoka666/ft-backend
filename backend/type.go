@@ -24,6 +24,15 @@ type Pasien struct {
 	LinkID       string `json:"link"`
 }
 
+type DataPasien struct {
+	NamaPasien   string    `json:"nama"`
+	NomorCM      string    `json:"nocm"`
+	JenKel       string    `json:"jk"`
+	Alamat       string    `json:"alamat"`
+	TglDaftar    time.Time `json:"tgldaf"`
+	Umur         time.Time `json:"umur"`
+}
+
 //Ini untuk menyimpan jumlah iki yang diperoleh
 type List struct {
 	TglJaga string `json:"tgl"`

@@ -1,7 +1,7 @@
-package main
+package backend
 
 import (
-	ft "backend"
+    ft "backend"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -16,7 +16,7 @@ import (
 
 func init() {
 	http.HandleFunc("/login", login)
-	// http.Handle("/getmain", ft.CekToken(http.HandlerFunc(homePage)))
+	http.Handle("/getcm", CekToken(http.HandlerFunc(getCM)))
 	// http.HandleFunc("/getmain", mainPage)
 }
 
@@ -51,19 +51,24 @@ func logError(c context.Context, e error) {
 
 // 	// log.Infof(ctx, dat["email"])
 
-// 	// user, token := ft.CekStaff(ctx, dat["email"])
+// 	// user, token := CekStaff(ctx, dat["email"])
 
 // 	// if user == "no-access" {
 // 	// 	fmt.Fprintln(w, "no-access")
 // 	// } else {
-// 	web := ft.GetMainContent(ctx, user, token, email)
-// 	js := ft.ConvertJSON(web)
+// 	web := GetMainContent(ctx, user, token, email)
+// 	js := ConvertJSON(web)
 // 	log.Infof(ctx, string(js))
 // 	json.NewEncoder(w).Encode(web)
 
 // 	// }
 // }
 
+func getCM(w http.ResponseWriter, r *http.Request){
+    nocm := r.FormValue("code")
+	
+	
+}
 func login(w http.ResponseWriter, r *http.Request) {
 	token := "https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=" + r.FormValue("token")
 	ctx := appengine.NewContext(r)
