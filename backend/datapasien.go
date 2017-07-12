@@ -9,47 +9,6 @@ import (
 	"google.golang.org/appengine/log"
 )
 
-// type WebView struct {
-// 	Token    string    `json:"token"`
-// 	User     string    `json:"user"`
-// 	Pasien   []Pasien  `json:"pasien"`
-// 	//IKI      []List    `json:"list"`
-// }
-
-// //Ini digunakan untuk view web, IKI1 dan IKI2 harus dipisah
-// type Pasien struct {
-// 	TglKunjungan string `json:"tgl"`
-// 	ShiftJaga    string `json:"shift"`
-// 	NoCM         string `json:"nocm"`
-// 	NamaPasien   string `json:"nama"`
-// 	Diagnosis    string `json:"diag"`
-// 	IKI1         string `json:"iki1"`
-// 	IKI2         string `json:"iki2"`
-// 	LinkID       string `json:"link"`
-// }
-
-// //Ini untuk menyimpan jumlah iki yang diperoleh
-// type List struct {
-// 	TglJaga      string `json:"tgl"`
-// 	//ShiftJaga    string `json:"shift"`
-// 	SumIKI1         string `json:"iki1"`
-// 	SumIKI2         string `json:"iki2"`
-// }
-
-// type KunjunganPasien struct {
-// 	Diagnosis, LinkID      string
-// 	GolIKI, ATS, ShiftJaga string
-// 	JamDatang              time.Time
-// 	Dokter                 string
-// 	Hide                   bool
-// 	JamDatangRiil          time.Time
-// }
-
-// type DataPasien struct {
-// 	NamaPasien, NomorCM, JenKel, Alamat string
-// 	TglDaftar, Umur                     time.Time
-// }
-
 func GetLast100(c context.Context, email string) []Pasien {
 	q := datastore.NewQuery("KunjunganPasien").Limit(100).Filter("Dokter =", email).Order("-JamDatang")
 	var m []Pasien
@@ -103,6 +62,42 @@ func ConvertDatastore(c context.Context, n KunjunganPasien, k *datastore.Key) *P
 	return m
 }
 
+func GetKunPasien(c context.Context, link string) *UbahPasien {
+	var kun KunjunganPasien
+	var dat DataPasien
+
+	log.Infof(c, "Link adalah : %v", link)
+	keyKun, err := datastore.DecodeKey(link)
+	if err != nil {
+		LogError(c, err)
+	}
+	err = datastore.Get(c, keyKun, &kun)
+	if err != nil {
+		LogError(c, err)
+	}
+	log.Infof(c, "Diagnosis adalah: %v", kun.Diagnosis)
+	keyPts := keyKun.Parent()
+	log.Infof(c, "No Cm adalah: %v", keyPts.StringID())
+	err = datastore.Get(c, keyPts, &dat)
+	if err != nil {
+		LogError(c, err)
+	}
+
+	pts := &UbahPasien{
+		NoCM:       keyPts.StringID(),
+		NamaPasien: dat.NamaPasien,
+		Diagnosis:  kun.Diagnosis,
+		ATS:        kun.ATS,
+		Shift:      kun.ShiftJaga,
+		Bagian:     kun.Bagian,
+		IKI:        kun.GolIKI,
+		LinkID:     link,
+		TglAsli:    kun.JamDatangRiil.Add(time.Duration(8) * time.Hour),
+	}
+
+	return pts
+}
+
 func GetDataPts(c context.Context, k *datastore.Key) (no, nama string) {
 	var p DataPasien
 	keypar := k.Parent()
@@ -115,17 +110,17 @@ func GetDataPts(c context.Context, k *datastore.Key) (no, nama string) {
 	return no, nama
 }
 
-func GetNamaByNoCM(c context.Context, nocm string) DataPasien {
+func GetNamaByNoCM(c context.Context, nocm string) (DataPasien, error) {
 	var pts DataPasien
 	parKey := datastore.NewKey(c, "IGD", "fasttrack", 0, nil)
 	ptsKey := datastore.NewKey(c, "DataPasien", nocm, 0, parKey)
 
 	err := datastore.Get(c, ptsKey, &pts)
-	if err != nil && err == datastore.ErrNoSuchEntity {
-		return "data-not-available"
+	if err != nil && err != datastore.ErrNoSuchEntity {
+		return pts, err
 	}
 
-	return pts
+	return pts, nil
 }
 
 func GetListIKI(pts []Pasien, m, y int) []List {

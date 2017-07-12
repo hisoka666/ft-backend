@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"time"
 
-	"appengine/datastore"
+	"google.golang.org/appengine/datastore"
 
 	"golang.org/x/net/context"
 	"google.golang.org/appengine"
@@ -28,10 +27,16 @@ type Pasien struct {
 	LinkID       string `json:"link"`
 }
 
+type InputPts struct {
+	ft.DataPasien      `json:"datapts"`
+	ft.KunjunganPasien `json:"kunjungan"`
+}
+
 func init() {
 	http.HandleFunc("/login", login)
 	http.Handle("/getcm", ft.CekToken(http.HandlerFunc(getCM)))
 	http.Handle("/inputpts", ft.CekToken(http.HandlerFunc(inputPasien)))
+	http.Handle("/entri/edit", ft.CekToken(http.HandlerFunc(editEntri)))
 	// http.HandleFunc("/getmain", mainPage)
 }
 
@@ -41,66 +46,35 @@ func logError(c context.Context, e error) {
 	return
 }
 
-// func homePage(w http.ResponseWriter, r *http.Request, email string) {
-// 	// token := "https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=" + r.FormValue("token")
-// 	// ctx := appengine.NewContext(r)
-// 	// // log.Infof(ctx, "Token adalah: %v", r.FormValue("token"))
-// 	// client := urlfetch.Client(ctx)
+func editEntri(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	pts := ft.Pasien{}
 
-// 	// resp, err := client.Get(token)
-// 	// if err != nil {
-// 	// 	logError(ctx, err)
-// 	// }
+	json.NewDecoder(r.Body).Decode(&pts)
 
-// 	// b, err := ioutil.ReadAll(resp.Body)
-// 	// if err != nil {
-// 	// 	logError(ctx, err)
-// 	// }
-// 	// resp.Body.Close()
+	resp := ft.GetKunPasien(ctx, pts.LinkID)
+	js := ft.ConvertJSON(resp)
+	log.Infof(ctx, string(js))
+	json.NewEncoder(w).Encode(resp)
+}
 
-// 	// var dat map[string]string
-// 	// if err := json.Unmarshal(b, &dat); err != nil {
-// 	// 	logError(ctx, err)
-// 	// 	return
-// 	// }
-
-// 	// log.Infof(ctx, dat["email"])
-
-// 	// user, token := ft.CekStaff(ctx, dat["email"])
-
-// 	// if user == "no-access" {
-// 	// 	fmt.Fprintln(w, "no-access")
-// 	// } else {
-// 	web := ft.GetMainContent(ctx, user, token, email)
-// 	js := ft.ConvertJSON(web)
-// 	log.Infof(ctx, string(js))
-// 	json.NewEncoder(w).Encode(web)
-
-// 	// }
-// }
-
-func inputPts(w http.ResponseWriter, r *http.Request) {
+func inputPasien(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 
 	input := &InputPts{}
-
+	pts := &ft.Pasien{}
 	err := json.NewDecoder(r.Body).Decode(input)
 	if err != nil {
-		input.DataPasien.NamaPasien = "kesalahan-decoding-json"
+		pts.NoCM = "kesalahan-decoding-json"
 		json.NewEncoder(w).Encode(input)
 	}
 
-	// 	ctx := appengine.NewContext(r)
-	// nocm := r.FormValue("nocm")
-	// doc, _, _ := AppCtx(ctx, "", "", "", "")
-	// _, parentKey, pasienKey := AppCtx(ctx, "DataPasien", nocm, "KunjunganPasien", "")
-	nocm := input.DataPasien.NoCM
-	data := &DataPasien{
+	data := &ft.DataPasien{
 		NamaPasien: input.DataPasien.NamaPasien,
 		TglDaftar:  input.DataPasien.TglDaftar,
 	}
 
-	kun := &KunjunganPasien{
+	kun := &ft.KunjunganPasien{
 		Diagnosis:     input.KunjunganPasien.Diagnosis,
 		GolIKI:        input.KunjunganPasien.GolIKI,
 		ATS:           input.KunjunganPasien.ATS,
@@ -108,34 +82,49 @@ func inputPts(w http.ResponseWriter, r *http.Request) {
 		JamDatang:     input.KunjunganPasien.JamDatang,
 		JamDatangRiil: input.KunjunganPasien.JamDatangRiil,
 		Dokter:        input.KunjunganPasien.Dokter,
+		Bagian:        input.KunjunganPasien.Bagian,
 	}
-	//Todo: bikin key
-	// parKey := datastore.NewKey(c, "IGD", "fasttrack", 0, nil)
-	// ptsKey := datastore.NewKey(c, "DataPasien", nocm, 0, parKey)
 
-	if input.DataPasien.TglDaftar != nil {
-		if _, err := datastore.Put(ctx, parentKey, data); err != nil {
-			ft.logError(ctx, "Error Database: %v", err)
+	numKey, inputKey := DatastoreKey(ctx, "DataPasien", input.DataPasien.NomorCM, "KunjunganPasien", "")
+	if input.DataPasien.TglDaftar.IsZero() == false {
+		if _, err := datastore.Put(ctx, numKey, data); err != nil {
+			ft.LogError(ctx, err)
+			pts.NoCM = "kesalahan-database"
+			json.NewEncoder(w).Encode(input)
 			return
 		}
-		if _, err := datastore.Put(ctx, pasienKey, kun); err != nil {
-			ft.logError(ctx, "Error Database: %v", err)
+		if _, err := datastore.Put(ctx, inputKey, kun); err != nil {
+			ft.LogError(ctx, err)
+			pts.NoCM = "kesalahan-database"
+			json.NewEncoder(w).Encode(input)
 			return
 		}
 	} else {
-		if _, err := datastore.Put(ctx, pasienKey, kun); err != nil {
-			ft.logError(ctx, "Error Database: %v", err)
+		if _, err := datastore.Put(ctx, inputKey, kun); err != nil {
+			ft.LogError(ctx, err)
+			pts.NoCM = "kesalahan-database"
+			json.NewEncoder(w).Encode(pts)
 			return
 		}
 
 	}
 
-	time.Sleep(5000 * time.Millisecond)
-	http.Redirect(w, r, "/mainpage", http.StatusSeeOther)
+	pts = ft.ConvertDatastore(ctx, input.KunjunganPasien, inputKey)
+
+	json.NewEncoder(w).Encode(pts)
+
+}
+
+func DatastoreKey(ctx context.Context, kind1 string, id1 string, kind2 string, id2 string) (*datastore.Key, *datastore.Key) {
+	gpKey := datastore.NewKey(ctx, "IGD", "fasttrack", 0, nil)
+	parKey := datastore.NewKey(ctx, kind1, id1, 0, gpKey)
+	chldKey := datastore.NewKey(ctx, kind2, id2, 0, parKey)
+
+	return parKey, chldKey
 }
 func getCM(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
-	var pts Pasien
+	pts := &ft.Pasien{}
 
 	if r.Body == nil {
 		pts.NamaPasien = "request-body-empty"
@@ -148,19 +137,19 @@ func getCM(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(pts)
 	}
 
-	pts = ft.GetNamaByNoCM(ctx, pts.NoCM)
-	if pts.NamaPasien != nil {
-		pts.Baru = false
-	} else {
-		pts.Baru = true
+	dat, err := ft.GetNamaByNoCM(ctx, pts.NoCM)
+	if err != nil {
+		dat.NomorCM = "kesalahan-server"
+		json.NewEncoder(w).Encode(pts)
 	}
+	pts.NamaPasien = dat.NamaPasien
+	pts.NoCM = dat.NomorCM
 	json.NewEncoder(w).Encode(pts)
 
 }
 func login(w http.ResponseWriter, r *http.Request) {
 	token := "https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=" + r.FormValue("token")
 	ctx := appengine.NewContext(r)
-	// log.Infof(ctx, "Token adalah: %v", r.FormValue("token"))
 	client := urlfetch.Client(ctx)
 
 	resp, err := client.Get(token)
