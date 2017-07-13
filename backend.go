@@ -86,30 +86,27 @@ func inputPasien(w http.ResponseWriter, r *http.Request) {
 	}
 
 	numKey, inputKey := DatastoreKey(ctx, "DataPasien", input.DataPasien.NomorCM, "KunjunganPasien", "")
+
 	if input.DataPasien.TglDaftar.IsZero() == false {
-		if _, err := datastore.Put(ctx, numKey, data); err != nil {
+		_, err := datastore.Put(ctx, numKey, data)
+		if err != nil {
 			ft.LogError(ctx, err)
 			pts.NoCM = "kesalahan-database"
 			json.NewEncoder(w).Encode(input)
-			return
-		}
-		if _, err := datastore.Put(ctx, inputKey, kun); err != nil {
-			ft.LogError(ctx, err)
-			pts.NoCM = "kesalahan-database"
-			json.NewEncoder(w).Encode(input)
-			return
-		}
-	} else {
-		if _, err := datastore.Put(ctx, inputKey, kun); err != nil {
-			ft.LogError(ctx, err)
-			pts.NoCM = "kesalahan-database"
-			json.NewEncoder(w).Encode(pts)
 			return
 		}
 
 	}
 
-	pts = ft.ConvertDatastore(ctx, input.KunjunganPasien, inputKey)
+	k, err := datastore.Put(ctx, inputKey, kun)
+	if err != nil {
+		ft.LogError(ctx, err)
+		pts.NoCM = "kesalahan-database"
+		json.NewEncoder(w).Encode(pts)
+		return
+	}
+
+	pts = ft.ConvertDatastore(ctx, input.KunjunganPasien, k)
 
 	json.NewEncoder(w).Encode(pts)
 
