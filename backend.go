@@ -37,7 +37,7 @@ func init() {
 	http.Handle("/getcm", ft.CekToken(http.HandlerFunc(getCM)))
 	http.Handle("/inputpts", ft.CekToken(http.HandlerFunc(inputPasien)))
 	http.Handle("/entri/edit", ft.CekToken(http.HandlerFunc(editEntri)))
-	http.Handle("/entri/confirmedit", ft.CekToken(http.HandlerFunc(editEntriConfirmed)))
+	http.Handle("/entri/confirmedit", ft.CekToken(http.HandlerFunc(UpdateEntri)))
 	// http.HandleFunc("/getmain", mainPage)
 }
 
@@ -114,63 +114,24 @@ func inputPasien(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateEntri(w http.ResponseWriter, r *http.Request) {
-	
-	ubah := &UbahPasien{}
-	
+	ctx := appengine.NewContext(r)
+	ubah := &ft.Pasien{}
+
 	err := json.NewDecoder(r.Body).Decode(ubah)
 	if err != nil {
-		ubah.NoCM = "kesalahan-decoding-json"
+		ubah.StatusServer = "kesalahan-decoding-json"
 		ft.LogError(ctx, err)
 		json.NewEncoder(w).Encode(ubah)
 	}
 
-	ctx := appengine.NewContext(r)
-	kun := &KunjunganPasien{}
-	pts := &DataPasien{}
-
-	keyKun, err := datastore.DecodeKey(ubah.LinkID)
+	up, err := ft.UpdateEntri(ctx, ubah)
 	if err != nil {
-		ubah.NoCM = "kesalahan-decoding-Key"
 		ft.LogError(ctx, err)
-		json.NewEncoder(w).Encode(ubah)
-	}
-	keyPts := keyKun.Parent()
-
-	err = datastore.Get(ctx, keyKun, kun)
-	if err != nil {
-		ubah.NoCM = "kesalahan-database-get-kunjungan-pts"
-		ft.LogError(ctx, err)
-		json.NewEncoder(w).Encode(ubah)
-	}
-	kun.Diagnosis = ubah.Diagnosis
-	kun.ATS = ubah.ATS
-	kun.GolIKI = ubah.IKI
-	kun.ShiftJaga = ubah.Shift
-
-	err = datastore.Get(ctx, keyPts, pts)
-	if err != nil {
-		ubah.NoCM = "kesalahan-database-get-datapts"
-		ft.LogError(ctx, err)
-		json.NewEncoder(w).Encode(ubah)return
-	}
-	pts.NamaPasien = ubah.NamaPasien
-
-	if _, err := datastore.Put(ctx, keyKun, kun); err != nil {
-		ubah.NoCM = "kesalahan-database-put-kunjungan-failed"
-		ft.LogError(ctx, err)
-		json.NewEncoder(w).Encode(ubah)
+		json.NewEncoder(w).Encode(up)
 		return
 	}
 
-	if _, err := datastore.Put(ctx, keyPts, pts); err != nil {
-		ubah.NoCM = "kesalahan-database-put-datapts-failed"
-		ft.LogError(ctx, err)
-		json.NewEncoder(w).Encode(ubah)
-		return
-	}
-
-	ubah.NoCM = "OK"
-	json.NewEncoder(w).Encode(ubah)
+	json.NewEncoder(w).Encode(up)
 }
 
 func DatastoreKey(ctx context.Context, kind1 string, id1 string, kind2 string, id2 string) (*datastore.Key, *datastore.Key) {

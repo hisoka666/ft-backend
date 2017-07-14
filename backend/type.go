@@ -14,14 +14,17 @@ type MainView struct {
 
 //Ini digunakan untuk view web, IKI1 dan IKI2 harus dipisah
 type Pasien struct {
-	TglKunjungan string `json:"tgl"`
-	ShiftJaga    string `json:"shift"`
-	NoCM         string `json:"nocm"`
-	NamaPasien   string `json:"nama"`
-	Diagnosis    string `json:"diag"`
-	IKI1         string `json:"iki1"`
-	IKI2         string `json:"iki2"`
-	LinkID       string `json:"link"`
+	StatusServer string    `json:"stat"`
+	TglKunjungan string    `json:"tgl"`
+	ShiftJaga    string    `json:"shift"`
+	ATS          string    `json:"ats"`
+	Bagian       string    `json:"bagian"`
+	NoCM         string    `json:"nocm"`
+	NamaPasien   string    `json:"nama"`
+	Diagnosis    string    `json:"diag"`
+	IKI          string    `json:"iki"`
+	LinkID       string    `json:"link"`
+	TglAsli      time.Time `json:"tglasli"`
 }
 
 //Ini untuk menyimpan jumlah iki yang diperoleh
@@ -32,17 +35,6 @@ type List struct {
 	SumIKI2 string `json:"iki2"`
 }
 
-type UbahPasien struct {
-	NoCM         string `json:"nocm"`
-	NamaPasien   string `json:"namapts"`
-	Diagnosis    string `json:"diag"`
-	ATS          string `json:"ats"`
-	Shift        string `json:"shift"`
-	Bagian       string `json:"bagian"`
-	IKI          string `json:"iki"`
-	LinkID       string `json:"link"`
-	TglAsli      time.Time `json:"tgl"`
-}
 type KunjunganPasien struct {
 	Diagnosis, LinkID      string
 	GolIKI, ATS, ShiftJaga string

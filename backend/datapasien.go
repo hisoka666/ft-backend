@@ -46,23 +46,20 @@ func ConvertDatastore(c context.Context, n KunjunganPasien, k *datastore.Key) *P
 		NoCM:         nocm,
 		NamaPasien:   namapts,
 		Diagnosis:    n.Diagnosis,
-		IKI1:         "",
-		IKI2:         "",
+		IKI:          "",
 		LinkID:       k.Encode(),
 	}
 
 	if n.GolIKI == "1" {
-		m.IKI1 = "1"
-		m.IKI2 = ""
+		m.IKI = "1"
 	} else {
-		m.IKI1 = ""
-		m.IKI2 = "1"
+		m.IKI = ""
 	}
 
 	return m
 }
 
-func GetKunPasien(c context.Context, link string) *UbahPasien {
+func GetKunPasien(c context.Context, link string) *Pasien {
 	var kun KunjunganPasien
 	var dat DataPasien
 
@@ -83,12 +80,12 @@ func GetKunPasien(c context.Context, link string) *UbahPasien {
 		LogError(c, err)
 	}
 
-	pts := &UbahPasien{
+	pts := &Pasien{
 		NoCM:       keyPts.StringID(),
 		NamaPasien: dat.NamaPasien,
 		Diagnosis:  kun.Diagnosis,
 		ATS:        kun.ATS,
-		Shift:      kun.ShiftJaga,
+		ShiftJaga:  kun.ShiftJaga,
 		Bagian:     kun.Bagian,
 		IKI:        kun.GolIKI,
 		LinkID:     link,
@@ -141,7 +138,7 @@ func GetListIKI(pts []Pasien, m, y int) []List {
 			if v.TglKunjungan != q {
 				continue
 			}
-			if v.IKI1 == "1" {
+			if v.IKI == "1" {
 				u1++
 			} else {
 				u2++
@@ -159,4 +156,67 @@ func GetListIKI(pts []Pasien, m, y int) []List {
 	}
 
 	return ikiBulan
+}
+
+func UpdateEntri(c context.Context, n *Pasien) (*Pasien, error) {
+
+	kun := &KunjunganPasien{}
+	pts := &DataPasien{}
+
+	keyKun, err := datastore.DecodeKey(n.LinkID)
+	if err != nil {
+		m := &Pasien{
+			StatusServer: "kesalahan-decoding-Key",
+		}
+		return m, err
+	}
+	keyPts := keyKun.Parent()
+
+	err = datastore.Get(c, keyKun, kun)
+	if err != nil {
+		m := &Pasien{
+			StatusServer: "kesalahan-database-get-kunjungan-pts",
+		}
+		return m, err
+	}
+
+	kun.Diagnosis = n.Diagnosis
+	kun.ATS = n.ATS
+	kun.GolIKI = n.IKI
+	kun.ShiftJaga = n.ShiftJaga
+	kun.Bagian = n.Bagian
+	n.TglKunjungan = UbahTanggal(kun.JamDatang, kun.ShiftJaga)
+
+	err = datastore.Get(c, keyPts, pts)
+	if err != nil {
+		m := &Pasien{
+			NoCM: "kesalahan-database-get-datapts",
+		}
+		return m, err
+	}
+	pts.NamaPasien = n.NamaPasien
+
+	if _, err := datastore.Put(c, keyKun, kun); err != nil {
+		m := &Pasien{
+			StatusServer: "kesalahan-database-put-kunjungan-failed",
+		}
+		return m, err
+	}
+
+	if _, err := datastore.Put(c, keyPts, pts); err != nil {
+		m := &Pasien{
+			StatusServer: "kesalahan-database-put-datapts-failed",
+		}
+		return m, err
+	}
+
+	if kun.GolIKI == "1" {
+		n.IKI = "1"
+	} else {
+		n.IKI = ""
+	}
+	n.NoCM = keyPts.StringID()
+	n.StatusServer = "OK"
+	log.Infof(c, string(ConvertJSON(n)))
+	return n, nil
 }
