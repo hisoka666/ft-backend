@@ -38,6 +38,8 @@ func init() {
 	http.Handle("/inputpts", ft.CekToken(http.HandlerFunc(inputPasien)))
 	http.Handle("/entri/edit", ft.CekToken(http.HandlerFunc(editEntri)))
 	http.Handle("/entri/confirmedit", ft.CekToken(http.HandlerFunc(UpdateEntri)))
+	http.Handle("/entri/delentri", ft.CekToken(http.HandlerFunc(delEntri)))
+	http.Handle("/entri/firstitems", ft.CekToken(http.HandlerFunc(firstItems)))
 	// http.HandleFunc("/getmain", mainPage)
 }
 
@@ -45,6 +47,17 @@ func logError(c context.Context, e error) {
 	// c := appengine.NewContext(r)
 	log.Errorf(c, "Error is: %v", e)
 	return
+}
+
+func firstItems(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	rec := &ft.MainView{}
+	json.NewDecoder(r.Body).Decode(rec)
+	rec.Pasien = ft.GetLast100(ctx, rec.User)
+	js := ft.ConvertJSON(rec.Pasien)
+	log.Infof(ctx, "Email adalah : %v dan list pasien adalah: %v", rec.User, string(js))
+
+	json.NewEncoder(w).Encode(rec)
 }
 
 func editEntri(w http.ResponseWriter, r *http.Request) {
@@ -59,6 +72,18 @@ func editEntri(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+func delEntri(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+
+	del := &ft.Pasien{}
+
+	json.NewDecoder(r.Body).Decode(del)
+
+	res := ft.DeleteEntri(ctx, del.LinkID)
+
+	json.NewEncoder(w).Encode(res)
+
+}
 func inputPasien(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 
@@ -196,8 +221,8 @@ func login(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "no-access")
 	} else {
 		web := ft.GetMainContent(ctx, user, token, dat["email"])
-		js := ft.ConvertJSON(web)
-		log.Infof(ctx, string(js))
+		// js := ft.ConvertJSON(web)
+		// log.Infof(ctx, string(js))
 		json.NewEncoder(w).Encode(web)
 
 	}

@@ -10,7 +10,7 @@ import (
 )
 
 func GetLast100(c context.Context, email string) []Pasien {
-	q := datastore.NewQuery("KunjunganPasien").Limit(100).Filter("Dokter =", email).Order("-JamDatang")
+	q := datastore.NewQuery("KunjunganPasien").Filter("Dokter =", email).Filter("Hide =", false).Order("-JamDatang").Limit(100)
 	var m []Pasien
 
 	t := q.Run(c)
@@ -219,4 +219,32 @@ func UpdateEntri(c context.Context, n *Pasien) (*Pasien, error) {
 	n.StatusServer = "OK"
 	log.Infof(c, string(ConvertJSON(n)))
 	return n, nil
+}
+
+func DeleteEntri(c context.Context, link string) *Pasien {
+	kun := &KunjunganPasien{}
+
+	keyKun, err := datastore.DecodeKey(link)
+	if err != nil {
+		LogError(c, err)
+	}
+	err = datastore.Get(c, keyKun, kun)
+	if err != nil {
+		LogError(c, err)
+	}
+
+	kun.Hide = true
+	if _, err := datastore.Put(c, keyKun, kun); err != nil {
+		m := &Pasien{
+			StatusServer: "kesalahan-database-put-kunjungan-failed",
+		}
+		LogError(c, err)
+		return m
+	}
+
+	m := &Pasien{
+		StatusServer: "OK",
+	}
+
+	return m
 }
