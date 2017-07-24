@@ -36,6 +36,7 @@ func GetLast100(c context.Context, email string) []Pasien {
 
 }
 
+//todo : ubahTanggalPasien
 func ConvertDatastore(c context.Context, n KunjunganPasien, k *datastore.Key) *Pasien {
 	tanggal := UbahTanggal(n.JamDatang, n.ShiftJaga)
 	nocm, namapts := GetDataPts(c, k)

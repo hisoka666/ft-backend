@@ -40,6 +40,9 @@ func init() {
 	http.Handle("/entri/confirmedit", ft.CekToken(http.HandlerFunc(UpdateEntri)))
 	http.Handle("/entri/delentri", ft.CekToken(http.HandlerFunc(delEntri)))
 	http.Handle("/entri/firstitems", ft.CekToken(http.HandlerFunc(firstItems)))
+	http.Handle("/entri/ubahtanggal", ft.CekToken(http.HandlerFunc(editDate)))
+	http.Handle("/entri/confubahtanggal", ft.CekToken(http.HandlerFunc(confEditDate)))
+
 	// http.HandleFunc("/getmain", mainPage)
 }
 
@@ -58,6 +61,30 @@ func firstItems(w http.ResponseWriter, r *http.Request) {
 	log.Infof(ctx, "Email adalah : %v dan list pasien adalah: %v", rec.User, string(js))
 
 	json.NewEncoder(w).Encode(rec)
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+func confEditDate(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	pts := ft.Pasien{}
+
+	json.NewDecoder(r.Body).Decode(&pts)
+	//todo: ubahTanggalPasien
+
+}
+
+//////////////////////////////////////////////////////////////////////////
+func editDate(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	pts := ft.Pasien{}
+
+	json.NewDecoder(r.Body).Decode(&pts)
+
+	resp := ft.GetKunPasien(ctx, pts.LinkID)
+
+	log.Infof(ctx, "Mengambil data pasien untuk diubah tanggalnya")
+	json.NewEncoder(w).Encode(resp)
 }
 
 func editEntri(w http.ResponseWriter, r *http.Request) {
