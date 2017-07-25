@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"google.golang.org/appengine/datastore"
 
@@ -70,6 +71,42 @@ func confEditDate(w http.ResponseWriter, r *http.Request) {
 	pts := ft.Pasien{}
 
 	json.NewDecoder(r.Body).Decode(&pts)
+	log.Infof(ctx, pts.LinkID)
+	keyKun, err := datastore.DecodeKey(pts.LinkID)
+	if err != nil {
+		ft.LogError(ctx, err)
+	}
+	log.Infof(ctx, "Key adalah : %v", keyKun)
+	kun := ft.KunjunganPasien{}
+
+	err = datastore.Get(ctx, keyKun, &kun)
+	if err != nil {
+		logError(ctx, err)
+	}
+	// log.Infof(ctx, pts.TglKunjungan)
+	email := kun.Dokter
+	zone, _ := time.LoadLocation("Asia/Makassar")
+	jamlama := kun.JamDatang.In(zone)
+	strJam := jamlama.Format("01/02/2006 15:04:05")
+	jam := pts.TglKunjungan + strJam[10:]
+	newTime, _ := time.ParseInLocation("2006-01-02 15:04:05", jam, zone)
+	log.Infof(ctx, "Jam baru adalah: %v", newTime)
+
+	kun.JamDatang = newTime
+
+	_, err = datastore.Put(ctx, keyKun, &kun)
+	if err != nil {
+		ft.LogError(ctx, err)
+		pts.NoCM = "kesalahan-database"
+		json.NewEncoder(w).Encode(pts)
+		return
+	}
+	list := ft.GetLast100(ctx, email)
+	send := ft.MainView{
+		Token:  "OK",
+		Pasien: list,
+	}
+	json.NewEncoder(w).Encode(send)
 	//todo: ubahTanggalPasien
 
 }

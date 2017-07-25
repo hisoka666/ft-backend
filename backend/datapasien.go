@@ -73,9 +73,9 @@ func GetKunPasien(c context.Context, link string) *Pasien {
 	if err != nil {
 		LogError(c, err)
 	}
-	log.Infof(c, "Diagnosis adalah: %v", kun.Diagnosis)
+	// log.Infof(c, "Diagnosis adalah: %v", kun.Diagnosis)
 	keyPts := keyKun.Parent()
-	log.Infof(c, "No Cm adalah: %v", keyPts.StringID())
+	// log.Infof(c, "No Cm adalah: %v", keyPts.StringID())
 	err = datastore.Get(c, keyPts, &dat)
 	if err != nil {
 		LogError(c, err)

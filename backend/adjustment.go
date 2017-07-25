@@ -5,12 +5,14 @@ import (
 )
 
 func UbahTanggal(t time.Time, s string) string {
-	jam := t.Hour()
+	zone, _ := time.LoadLocation("Asia/Makassar")
+	idn := t.In(zone)
+	jam := idn.Hour()
 	tglstring := ""
 	if jam < 12 && s == "3" {
-		tglstring = t.AddDate(0, 0, -1).Format("02-01-2006")
+		tglstring = idn.AddDate(0, 0, -1).Format("02-01-2006")
 	} else {
-		tglstring = t.Format("02-01-2006")
+		tglstring = idn.Format("02-01-2006")
 	}
 	return tglstring + " (" + StringShift(s) + ")"
 }
@@ -34,4 +36,3 @@ func DatebyInt(m, y int) time.Time {
 
 	return monIn
 }
-
