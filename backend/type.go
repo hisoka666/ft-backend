@@ -51,7 +51,7 @@ type DataPasien struct {
 }
 
 type Kursor struct {
-	Point string
+	Point string `json:"point"`
 }
 
 type NavBar struct {

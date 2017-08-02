@@ -17,6 +17,20 @@ func UbahTanggal(t time.Time, s string) string {
 	return tglstring + " (" + StringShift(s) + ")"
 }
 
+func AdjustTime(t time.Time, s string) time.Time {
+	zone, _ := time.LoadLocation("Asia/Makassar")
+	idn := t.In(zone)
+	jam := idn.Hour()
+	// tglstring := ""
+	if jam < 12 && s == "3" {
+		// tglstring = 
+		return idn.AddDate(0, 0, -1)
+	} else {
+		// tglstring = 
+		return idn
+	}
+}
+
 func StringShift(n string) string {
 	var m string
 	switch n {

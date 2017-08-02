@@ -43,6 +43,7 @@ func init() {
 	http.Handle("/entri/firstitems", ft.CekToken(http.HandlerFunc(firstItems)))
 	http.Handle("/entri/ubahtanggal", ft.CekToken(http.HandlerFunc(editDate)))
 	http.Handle("/entri/confubahtanggal", ft.CekToken(http.HandlerFunc(confEditDate)))
+	http.Handle("/getbulan", ft.CekToken(http.HandlerFunc(getBulan)))
 
 	// http.HandleFunc("/getmain", mainPage)
 }
@@ -58,10 +59,21 @@ func firstItems(w http.ResponseWriter, r *http.Request) {
 	rec := &ft.MainView{}
 	json.NewDecoder(r.Body).Decode(rec)
 	rec.Pasien = ft.GetLast100(ctx, rec.User)
-	js := ft.ConvertJSON(rec.Pasien)
-	log.Infof(ctx, "Email adalah : %v dan list pasien adalah: %v", rec.User, string(js))
+	// js := ft.ConvertJSON(rec.Pasien)
+	// log.Infof(ctx, "Email adalah : %v dan list pasien adalah: %v", rec.User, string(js))
 
 	json.NewEncoder(w).Encode(rec)
+}
+
+//////////////////////////////////////////////////////////////////////////
+func getBulan(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	pts := ft.MainView{}
+	json.NewDecoder(r.Body).Decode(&pts)
+	tgl := pts.Bulan[0]
+	log.Infof(ctx, "User %s sedang mencoba mengakses data %s", pts.User, tgl)
+	nn := ft.GetBulanIniList(ctx, pts.User, tgl)
+	json.NewEncoder(w).Encode(nn)
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -111,7 +123,6 @@ func confEditDate(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//////////////////////////////////////////////////////////////////////////
 func editDate(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	pts := ft.Pasien{}

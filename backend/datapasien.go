@@ -37,6 +37,43 @@ func GetLast100(c context.Context, email string) []Pasien {
 }
 
 //todo : ubahTanggalPasien
+func GetBulanIniList(c context.Context, email, tgl string) []Pasien {
+	q := datastore.NewQuery("KunjunganPasien").Filter("Dokter=", email).Filter("Hide=", false).Order("-JamDatang")
+	strmon := tgl + "/01"
+	mon, err := time.Parse("2006/01/02", strmon)
+	if err != nil {
+		LogError(c, err)
+	}
+	t := q.Run(c)
+	if err != nil {
+		LogError(c, err)
+	}
+	var kun KunjunganPasien
+	var m []Pasien
+	for {
+		k, err := t.Next(&kun)
+		if err == datastore.Done {
+			break
+		}
+		if err != nil {
+			LogError(c, err)
+		}
+
+		jamEdit := AdjustTime(kun.JamDatang, kun.ShiftJaga)
+		if jamEdit.Before(mon) == true {
+			break
+		}
+
+		n := ConvertDatastore(c, kun, k)
+
+		m = append(m, *n)
+	}
+	for i, j := 0, len(m)-1; i < j; i, j = i+1, j-1 {
+		m[i], m[j] = m[j], m[i]
+	}
+
+	return m
+}
 func ConvertDatastore(c context.Context, n KunjunganPasien, k *datastore.Key) *Pasien {
 	tanggal := UbahTanggal(n.JamDatang, n.ShiftJaga)
 	nocm, namapts := GetDataPts(c, k)
@@ -248,4 +285,12 @@ func DeleteEntri(c context.Context, link string) *Pasien {
 	}
 
 	return m
+}
+
+func DatastoreKey(ctx context.Context, kind1 string, id1 string, kind2 string, id2 string) (*datastore.Key, *datastore.Key) {
+	gpKey := datastore.NewKey(ctx, "IGD", "fasttrack", 0, nil)
+	parKey := datastore.NewKey(ctx, kind1, id1, 0, gpKey)
+	chldKey := datastore.NewKey(ctx, kind2, id2, 0, parKey)
+
+	return parKey, chldKey
 }
