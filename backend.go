@@ -35,6 +35,7 @@ type InputPts struct {
 
 func init() {
 	http.HandleFunc("/login", login)
+	http.HandleFunc("/createkursor", createKursor)
 	http.Handle("/getcm", ft.CekToken(http.HandlerFunc(getCM)))
 	http.Handle("/inputpts", ft.CekToken(http.HandlerFunc(inputPasien)))
 	http.Handle("/entri/edit", ft.CekToken(http.HandlerFunc(editEntri)))
@@ -43,6 +44,7 @@ func init() {
 	http.Handle("/entri/firstitems", ft.CekToken(http.HandlerFunc(firstItems)))
 	http.Handle("/entri/ubahtanggal", ft.CekToken(http.HandlerFunc(editDate)))
 	http.Handle("/entri/confubahtanggal", ft.CekToken(http.HandlerFunc(confEditDate)))
+	http.Handle("/getbulanini", ft.CekToken(http.HandlerFunc(getBulanIni)))
 	http.Handle("/getbulan", ft.CekToken(http.HandlerFunc(getBulan)))
 
 	// http.HandleFunc("/getmain", mainPage)
@@ -65,8 +67,34 @@ func firstItems(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(rec)
 }
 
+func createKursor(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	var staf []ft.Staff
+	q := datastore.NewQuery("Staff")
+	_, err := q.GetAll(ctx, &staf)
+	if err != nil {
+		ft.LogError(ctx, err)
+	}
+
+	for _, v := range staf {
+		ft.CreateEndKursor(ctx, v.Email)
+	}
+
+}
+
 //////////////////////////////////////////////////////////////////////////
 func getBulan(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	pts := ft.MainView{}
+	json.NewDecoder(r.Body).Decode(&pts)
+	tgl := pts.Bulan[0]
+	log.Infof(ctx, "User %s sedang mencoba mengakses data %s", pts.User, tgl)
+	nn := ft.GetListbyKursor(ctx, pts.User, tgl)
+	json.NewEncoder(w).Encode(nn)
+}
+
+//////////////////////////////////////////////////////////////////////////
+func getBulanIni(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	pts := ft.MainView{}
 	json.NewDecoder(r.Body).Decode(&pts)
@@ -75,8 +103,6 @@ func getBulan(w http.ResponseWriter, r *http.Request) {
 	nn := ft.GetBulanIniList(ctx, pts.User, tgl)
 	json.NewEncoder(w).Encode(nn)
 }
-
-//////////////////////////////////////////////////////////////////////////
 
 func confEditDate(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)

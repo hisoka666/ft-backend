@@ -1,0 +1,5 @@
+cron:
+- description: "create kursor"
+  url: /createkursor
+  schedule: 1st day of month 08:00
+  timezone: Asia/Makassar

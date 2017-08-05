@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"strconv"
 	"time"
 
 	"golang.org/x/net/context"
@@ -8,54 +9,124 @@ import (
 	"google.golang.org/appengine/log"
 )
 
+// func GetListbyKursor(c context.Context, email, tgl string) []Pasien {
+// 	_, kurKey := DatastoreKey(c, "Dokter", email, "Kursor", tgl)
+// 	log.Infof(c, "Key adalah: %s", kurKey)
+// 	yr, _ := strconv.Atoi(tgl[:4])
+// 	mo, _ := strconv.Atoi(tgl[5:7])
+// 	zone, _ := time.LoadLocation("Asia/Makassar")
+
+// 	kur := Kursor{}
+// 	kun := KunjunganPasien{}
+// 	q := datastore.NewQuery("KunjunganPasien").Filter("Dokter=", email).Filter("Hide=", false).Order("-JamDatang")
+
+// 	err := datastore.Get(c, kurKey, &kur)
+// 	if err != nil && err != datastore.ErrNoSuchEntity {
+// 		LogError(c, err)
+// 	}
+// 	log.Infof(c, "Tanggal adalah : %v", tgl)
+// 	if err != nil && err == datastore.ErrNoSuchEntity {
+// 		t := q.Run(c)
+// 		// days := time.Date(yr,time.Month(mo),0,0,0,0,0,zone).Day()
+// 		// mon := time.Date()
+// 		strmon := tgl + "/01"
+// 		mth, err := time.Parse("2006/01/02", strmon)
+// 		if err != nil {
+// 			LogError(c, err)
+// 		}
+// 		mon := mth.AddDate(0, 1, -1)
+// 		log.Infof(c, "MOn adalah: %v", mon)
+// 		for {
+// 			_, err := t.Next(&kun)
+// 			if err == datastore.Done {
+// 				break
+// 			}
+// 			if err != nil {
+// 				LogError(c, err)
+// 			}
+
+// 			jamEdit := AdjustTime(kun.JamDatang, kun.ShiftJaga)
+
+// 			if jamEdit.Before(mon) != true {
+// 				cursor, _ := t.Cursor()
+// 				kur.Point = cursor.String()
+// 				if _, err := datastore.Put(c, kurKey, &kur); err != nil {
+// 					LogError(c, err)
+// 				}
+// 				break
+// 			}
+// 		}
+// 		log.Infof(c, "Cek kursor berhasil")
+// 		err = datastore.Get(c, kurKey, &kur)
+// 		if err != nil {
+// 			LogError(c, err)
+// 		}
+// 	}
+
+// 	kursor, err := datastore.DecodeCursor(kur.Point)
+// 	if err != nil {
+// 		LogError(c, err)
+// 	}
+
+// 	q = q.Start(kursor)
+
+// 	var m []Pasien
+
+// 	t := q.Run(c)
+// 	log.Infof(c, "Error decode ")
+
+// 	monin := time.Date(yr, time.Month(mo), 1, 0, 0, 0, 0, zone)
+// 	log.Infof(c, "tanggal satu bulan ini adalah: %v", monin)
+// 	// strmonin := tgl + "/01"
+// 	// monin, err := time.Parse("2006/01/02", strmonin)
+// 	// log.Infof(c, "Tanggal satu adalah : %v", monin)
+
+// 	for {
+// 		var j KunjunganPasien
+// 		k, err := t.Next(&j)
+// 		if err == datastore.Done {
+// 			break
+// 		}
+
+// 		if err != nil {
+// 			LogError(c, err)
+// 			break
+// 		}
+// 		log.Infof(c, "Jam datang adalah : %v", j.JamDatang)
+// 		jamAdjust := AdjustTime(j.JamDatang, j.ShiftJaga)
+// 		log.Infof(c, "Apakah sebelum? %v", jamAdjust.Before(monin))
+// 		if jamAdjust.Before(monin) == true {
+// 			break
+// 		}
+
+// 		n := ConvertDatastore(c, j, k)
+// 		log.Infof(c, "Tanggal ini isinya: %v", n)
+
+// 		m = append(m, *n)
+// 	}
+
+// 	for i, j := 0, len(m)-1; i < j; i, j = i+1, j-1 {
+// 		m[i], m[j] = m[j], m[i]
+// 	}
+
+// 	log.Infof(c, "list adalah : %v", m)
+// 	return m
+// }
 
 func GetListbyKursor(c context.Context, email, tgl string) []Pasien {
 	_, kurKey := DatastoreKey(c, "Dokter", email, "Kursor", tgl)
 	log.Infof(c, "Key adalah: %s", kurKey)
-
-	kur := Kursor{}
-	kun := KunjunganPasien{}
-
-	err := datastore.Get(c, kurKey, &kur)
+	yr, _ := strconv.Atoi(tgl[:4])
+	mo, _ := strconv.Atoi(tgl[5:7])
+	zone, _ := time.LoadLocation("Asia/Makassar")
 	q := datastore.NewQuery("KunjunganPasien").Filter("Dokter=", email).Filter("Hide=", false).Order("-JamDatang")
 
-	if err != nil && err != datastore.ErrNoSuchEntity {
+	kur := Kursor{}
+	err := datastore.Get(c, kurKey, &kur)
+	if err != nil {
 		LogError(c, err)
 	}
-
-	if err != nil && err == datastore.ErrNoSuchEntity {
-		t := q.Run(c)
-		strmon := tgl + "/01"
-		mon, err := time.Parse("2006/01/02", strmon)
-		if err != nil {
-			LogError(c, err)
-		}
-		for {
-			_, err := t.Next(&kun)
-			if err == datastore.Done {
-				break
-			}
-			if err != nil {
-				LogError(c, err)
-			}
-
-			jamEdit := AdjustTime(kun.JamDatang, kun.ShiftJaga)
-
-			if jamEdit.After(mon) != true {
-				cursor, _ := t.Cursor()
-				kur.Point = cursor.String()
-				if _, err := datastore.Put(c, kurKey, &kur); err != nil {
-					LogError(c, err)
-				}
-				break
-			}
-		}
-
-		err = datastore.Get(c, kurKey, &kur)
-		if err != nil {
-			LogError(c, err)
-		}
-	}
+	log.Infof(c, "Tanggal adalah : %v", tgl)
 
 	kursor, err := datastore.DecodeCursor(kur.Point)
 	if err != nil {
@@ -67,9 +138,13 @@ func GetListbyKursor(c context.Context, email, tgl string) []Pasien {
 	var m []Pasien
 
 	t := q.Run(c)
-	strmonin := tgl + "/01"
-	monin, err := time.Parse("2006/01/02", strmonin)
-	log.Infof(c, "Tanggal satu adalah : %v", monin)
+	log.Infof(c, "Sampai di sini berarti start kursor jalan")
+
+	monin := time.Date(yr, time.Month(mo), 1, 0, 0, 0, 0, zone)
+	log.Infof(c, "tanggal satu bulan ini adalah: %v", monin)
+	// strmonin := tgl + "/01"
+	// monin, err := time.Parse("2006/01/02", strmonin)
+	// log.Infof(c, "Tanggal satu adalah : %v", monin)
 
 	for {
 		var j KunjunganPasien
@@ -90,6 +165,7 @@ func GetListbyKursor(c context.Context, email, tgl string) []Pasien {
 		}
 
 		n := ConvertDatastore(c, j, k)
+		log.Infof(c, "Tanggal ini isinya: %v", n)
 
 		m = append(m, *n)
 	}
@@ -100,4 +176,41 @@ func GetListbyKursor(c context.Context, email, tgl string) []Pasien {
 
 	log.Infof(c, "list adalah : %v", m)
 	return m
+}
+
+func CreateEndKursor(c context.Context, email string) {
+
+	q := datastore.NewQuery("KunjunganPasien").Filter("Dokter=", email).Filter("Hide=", false).Order("-JamDatang")
+	t := q.Run(c)
+	kur := Kursor{}
+	kun := KunjunganPasien{}
+	// days := time.Date(yr,time.Month(mo),0,0,0,0,0,zone).Day()
+	// mon := time.Date()
+	zone, _ := time.LoadLocation("Asia/Makassar")
+	todayIs := time.Now().In(zone)
+	hariini := time.Date(todayIs.Year(), todayIs.Month(), 1, 0, 0, 0, 0, zone)
+	tgl := hariini.AddDate(0, -1, 0).Format("2006/01")
+	_, kurKey := DatastoreKey(c, "Dokter", email, "Kursor", tgl)
+	log.Infof(c, "Waktu lokal adalah: %v", hariini)
+	for {
+		_, err := t.Next(&kun)
+		if err == datastore.Done {
+			break
+		}
+		if err != nil {
+			LogError(c, err)
+		}
+
+		jamEdit := AdjustTime(kun.JamDatang, kun.ShiftJaga)
+		log.Infof(c, "Jamedit adalah: %v", jamEdit)
+		log.Infof(c, "Apakah hari ini sebelum tanggal 1? %v", jamEdit.Before(hariini))
+		if jamEdit.Before(hariini) == true {
+			cursor, _ := t.Cursor()
+			kur.Point = cursor.String()
+			if _, err := datastore.Put(c, kurKey, &kur); err != nil {
+				LogError(c, err)
+			}
+			break
+		}
+	}
 }
