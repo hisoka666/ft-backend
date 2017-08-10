@@ -84,6 +84,8 @@ func ConvertDatastore(c context.Context, n KunjunganPasien, k *datastore.Key) *P
 		NoCM:         nocm,
 		NamaPasien:   namapts,
 		Diagnosis:    n.Diagnosis,
+		ATS:          n.ATS,
+		Dept:         n.Bagian,
 		IKI:          "",
 		LinkID:       k.Encode(),
 	}
@@ -124,7 +126,7 @@ func GetKunPasien(c context.Context, link string) *Pasien {
 		Diagnosis:  kun.Diagnosis,
 		ATS:        kun.ATS,
 		ShiftJaga:  kun.ShiftJaga,
-		Bagian:     kun.Bagian,
+		Dept:       kun.Bagian,
 		IKI:        kun.GolIKI,
 		LinkID:     link,
 		TglAsli:    kun.JamDatangRiil.Add(time.Duration(8) * time.Hour),
@@ -222,7 +224,7 @@ func UpdateEntri(c context.Context, n *Pasien) (*Pasien, error) {
 	kun.ATS = n.ATS
 	kun.GolIKI = n.IKI
 	kun.ShiftJaga = n.ShiftJaga
-	kun.Bagian = n.Bagian
+	kun.Bagian = n.Dept
 	n.TglKunjungan = UbahTanggal(kun.JamDatang, kun.ShiftJaga)
 
 	err = datastore.Get(c, keyPts, pts)

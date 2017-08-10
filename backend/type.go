@@ -18,7 +18,7 @@ type Pasien struct {
 	TglKunjungan string    `json:"tgl"`
 	ShiftJaga    string    `json:"shift"`
 	ATS          string    `json:"ats"`
-	Bagian       string    `json:"bagian"`
+	Dept         string    `json:"dept"`
 	NoCM         string    `json:"nocm"`
 	NamaPasien   string    `json:"nama"`
 	Diagnosis    string    `json:"diag"`

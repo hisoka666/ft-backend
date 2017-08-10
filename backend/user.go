@@ -68,46 +68,6 @@ func GetBulan(c context.Context, k *datastore.Key) []string {
 		list[i], list[j] = list[j], list[i]
 	}
 
-	// nav := &NavBar{
-	// 	Token: token,
-	// 	User: user,
-	// 	Bulan: list,
-	// }
-
 	return list
 
 }
-
-// func AppCtx(ctx appengine.Context, kind1 string, id1 string, kind2 string, id2 string) (string, *datastore.Key, *datastore.Key){
-
-//    u := user.Current(ctx)
-//    email := u.Email
-
-//    gpKey := datastore.NewKey(ctx, "IGD", "fasttrack", 0, nil)
-//    parKey := datastore.NewKey(ctx, kind1, id1, 0, gpKey)
-//    chldKey := datastore.NewKey(ctx, kind2, id2, 0, parKey)
-
-//    return email, parKey, chldKey
-// }
-
-// func ListLaporan(w http.ResponseWriter, r *http.Request) []string {
-// 	ctx := appengine.NewContext(r)
-// 	email, _, _ := AppCtx(ctx, "", "", "", "")
-// 	_, key, _ := AppCtx(ctx, "Dokter", email, "Kursor", "")
-// 	kur := []Kursor{}
-// 	q := datastore.NewQuery("Kursor").Ancestor(key)
-// 	keys, err := q.GetAll(ctx, &kur)
-// 	if err != nil {
-// 		fmt.Fprintln(w, "Error Fetching Kursor :", err)
-// 	}
-
-// 	var list []string
-// 	for _, v := range keys {
-// 		m := v.StringID()
-// 		list = append(list, m)
-// 	}
-// 	for i, j := 0, len(list)-1; i < j; i, j = i+1, j-1 {
-// 		list[i], list[j] = list[j], list[i]
-// 	}
-// 	return list
-// }
