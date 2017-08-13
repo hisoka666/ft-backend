@@ -73,3 +73,17 @@ type ServerResponse struct {
 	Error  string `json:"error"`
 	Pasien `json:"pasien"`
 }
+
+type InputObat struct {
+	MerkDagang     string   `json:"merk"`
+	Kandungan      string   `json:"kand"`
+	MinDose        string   `json:"mindose"`
+	MaxDose        string   `json:"maxdose"`
+	Tablet         []string `json:"tab"`
+	Sirup          []string `json:"syr"`
+	Drop           []string `json:"drop"`
+	Lainnya        string   `json:"lainnya"`
+	SediaanLainnya []string `json:"lainnya_sediaan"`
+	Rekomendasi    string   `json:"rekom"`
+	Dokter         string   `json:"doc"`
+}

@@ -46,6 +46,7 @@ func init() {
 	http.Handle("/entri/confubahtanggal", ft.CekToken(http.HandlerFunc(confEditDate)))
 	http.Handle("/getbulanini", ft.CekToken(http.HandlerFunc(getBulanIni)))
 	http.Handle("/getbulan", ft.CekToken(http.HandlerFunc(getBulan)))
+	http.Handle("/inputobat", ft.CekToken(http.HandlerFunc(inputObat)))
 
 	// http.HandleFunc("/getmain", mainPage)
 }
@@ -83,6 +84,25 @@ func createKursor(w http.ResponseWriter, r *http.Request) {
 }
 
 //////////////////////////////////////////////////////////////////////////
+func inputObat(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	obt := ft.InputObat{}
+	json.NewDecoder(r.Body).Decode(&obt)
+	keyObt, _ := ft.DatastoreKey(ctx, "InputObat", "", "", "")
+	if _, err := datastore.Put(ctx, keyObt, &obt); err != nil {
+		m := &ft.ServerResponse{
+			Error: fmt.Sprintf("Kesalahan server: %v", err),
+		}
+		json.NewEncoder(w).Encode(m)
+		log.Errorf(ctx, "Kesalahan server: %v", err)
+	}
+	m := &ft.ServerResponse{
+		Error: "",
+	}
+	json.NewEncoder(w).Encode(m)
+}
+
+//////////////////////////////////////////////////////////////////////////
 func getBulan(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	pts := ft.MainView{}
@@ -93,7 +113,6 @@ func getBulan(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(nn)
 }
 
-//////////////////////////////////////////////////////////////////////////
 func getBulanIni(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	pts := ft.MainView{}
