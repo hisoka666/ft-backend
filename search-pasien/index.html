@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <title>Test Search</title>
+</head>
+<body>
+
+        <input type="text" name="carinama" id="cari" placeholder="Cari berdasarkan nama">
+        <ul><div id="result"></div></ul>
+
+    <script>
+        $(document).ready(function(){
+            
+            $("#cari").keyup(function(){
+                var nm = ""
+                var nm = $("#cari").val()
+                // $("#result").html(nm)
+                $.post("caripts",{
+                    nama: nm
+                }, function(data){
+                    $("#result").html(data)
+                })
+            })
+        })
+    </script>
+</body>
+</html>

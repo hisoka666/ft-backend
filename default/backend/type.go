@@ -4,13 +4,13 @@ import (
 	"time"
 )
 
-type MainView struct {
-	Token  string   `json:"token"`
-	User   string   `json:"user"`
-	Bulan  []string `json:"bulan"`
-	Pasien []Pasien `json:"pasien"`
-	//IKI      []List    `json:"list"`
-}
+// type MainView struct {
+// 	Token  string   `json:"token"`
+// 	User   string   `json:"user"`
+// 	Bulan  []string `json:"bulan"`
+// 	Pasien []Pasien `json:"pasien"`
+// 	//IKI      []List    `json:"list"`
+// }
 
 //Ini digunakan untuk view web, IKI1 dan IKI2 harus dipisah
 type Pasien struct {
@@ -28,12 +28,12 @@ type Pasien struct {
 }
 
 //Ini untuk menyimpan jumlah iki yang diperoleh
-type List struct {
-	TglJaga string `json:"tgl"`
-	//ShiftJaga    string `json:"shift"`
-	SumIKI1 string `json:"iki1"`
-	SumIKI2 string `json:"iki2"`
-}
+// type List struct {
+// 	TglJaga string `json:"tgl"`
+// 	//ShiftJaga    string `json:"shift"`
+// 	SumIKI1 string `json:"iki1"`
+// 	SumIKI2 string `json:"iki2"`
+// }
 
 type KunjunganPasien struct {
 	Diagnosis, LinkID      string
