@@ -1,4 +1,4 @@
-package input_obat
+package link_obat
 
 import (
 	"encoding/json"
@@ -6,19 +6,23 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"cloud.google.com/go/storage"
+	"google.golang.org/appengine/datastore"
 
+	"cloud.google.com/go/storage"
+	jwt "github.com/dgrijalva/jwt-go"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine"
-	"google.golang.org/appengine/datastore"
 	"google.golang.org/appengine/log"
-	"google.golang.org/appengine/search"
-
-	"github.com/dgrijalva/jwt-go"
 )
 
 func init() {
-	http.Handle("/", CekToken(http.HandlerFunc(inputObat)))
+	http.Handle("/", CekToken(http.HandlerFunc(linkObat)))
+}
+
+type IndexObat struct {
+	MerkDagang string `json:"merk"`
+	Kandungan  string `json:"kandungan"`
+	Link       string `json:"link"`
 }
 
 type InputObat struct {
@@ -33,54 +37,6 @@ type InputObat struct {
 	SediaanLainnya []string `json:"lainnya_sediaan"`
 	Rekomendasi    string   `json:"rekom"`
 	Dokter         string   `json:"doc"`
-}
-
-type ServerResponse struct {
-	Error string `json:"error"`
-}
-
-type IndexObat struct {
-	MerkDagang string `json:"merk"`
-	Kandungan  string `json:"kandungan"`
-	Link       string `json:"link"`
-}
-
-func inputObat(w http.ResponseWriter, r *http.Request) {
-	ctx := appengine.NewContext(r)
-	obt := InputObat{}
-	json.NewDecoder(r.Body).Decode(&obt)
-	keyObt, _ := DatastoreKey(ctx, "InputObat", "", "", "")
-	k, err := datastore.Put(ctx, keyObt, &obt)
-	if err != nil {
-		m := &ServerResponse{
-			Error: fmt.Sprintf("Kesalahan server: %v", err),
-		}
-		json.NewEncoder(w).Encode(m)
-		log.Errorf(ctx, "Kesalahan server: %v", err)
-	}
-	oba := &IndexObat{
-		MerkDagang: obt.MerkDagang,
-		Kandungan:  obt.Kandungan,
-		Link:       k.Encode(),
-	}
-	index, err := search.Open("DataObat")
-	if err != nil {
-		log.Errorf(ctx, "Terjadi kesalahan saat membuat dokumen: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	ke, err := index.Put(ctx, k.Encode(), oba)
-	if err != nil {
-		log.Errorf(ctx, "Terjadi kesalahan saat memasukkan dokumen: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	log.Infof(ctx, "Key untuk index obat adalah : %v", ke)
-
-	m := &ServerResponse{
-		Error: "",
-	}
-	json.NewEncoder(w).Encode(m)
 }
 
 func CekToken(next http.Handler) http.Handler {
@@ -136,34 +92,8 @@ func GetKey(ctx context.Context) ([]byte, error) {
 	}
 	// harus buat object untuk akses bucket
 	obj := client.Bucket("igdsanglah").Object("secretkey")
-	// cek atribut Created
-	// atrib, err := obj.Attrs(ctx)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// // jika Created sudah lebih dari 1 bulan, akan dibuat secretkey
-	// // yang baru
-	// if skrn := time.Now().After(atrib.Created.AddDate(0, 1, 0)); skrn == true {
-	// 	wc := obj.NewWriter(ctx)
-	// 	if _, err := wc.Write(MakeKey(ctx)); err != nil {
-	// 		return nil, err
-	// 	}
-	// 	if err = wc.Close(); err != nil {
-	// 		return nil, err
-	// 	}
-	// }
 	// membaca secret key dari cloud storage
 	rc, err := obj.NewReader(ctx)
-	// jika tidak ada secretkey, akan dibuat yang baru
-	// if err != nil {
-	// 	wc := obj.NewWriter(ctx)
-	// 	if _, err := wc.Write(MakeKey(ctx)); err != nil {
-	// 		return nil, err
-	// 	}
-	// 	if err = wc.Close(); err != nil {
-	// 		return nil, err
-	// 	}
-	// }
 	// membaca secret key yang sudah diperoleh
 	key, err := ioutil.ReadAll(rc)
 	if err != nil {
@@ -180,10 +110,21 @@ func LogError(c context.Context, e error) {
 	return
 }
 
-func DatastoreKey(ctx context.Context, kind1 string, id1 string, kind2 string, id2 string) (*datastore.Key, *datastore.Key) {
-	gpKey := datastore.NewKey(ctx, "IGD", "fasttrack", 0, nil)
-	parKey := datastore.NewKey(ctx, kind1, id1, 0, gpKey)
-	chldKey := datastore.NewKey(ctx, kind2, id2, 0, parKey)
+func linkObat(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	obt := &IndexObat{}
+	json.NewDecoder(r.Body).Decode(obt)
+	log.Infof(ctx, "Link adalah: %v", obt.Link)
+	keyObt, err := datastore.DecodeKey(obt.Link)
+	if err != nil {
+		LogError(ctx, err)
+	}
+	log.Infof(ctx, "Key adalah : %v", keyObt)
+	obat := &InputObat{}
+	err = datastore.Get(ctx, keyObt, obat)
+	if err != nil {
+		LogError(ctx, err)
+	}
 
-	return parKey, chldKey
+	json.NewEncoder(w).Encode(obat)
 }

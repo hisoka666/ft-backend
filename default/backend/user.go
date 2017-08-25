@@ -9,19 +9,17 @@ import (
 	"google.golang.org/appengine/log"
 )
 
-type Staff struct {
-	Email, NamaLengkap, LinkID string
-}
-
 type MainView struct {
-	Token  string   `json:"token"`
-	User   string   `json:"user"`
-	Bulan  []string `json:"bulan"`
-	Pasien []Pasien `json:"pasien"`
-	//IKI      []List    `json:"list"`
+	Token  string    `json:"token"`
+	User   string    `json:"user"`
+	Bulan  []string  `json:"bulan"`
+	Pasien []Pasien  `json:"pasien"`
+	IKI    []ListIKI `json:"list"`
+	Admin  Admin     `json:"admin"`
+	Peran  string    `json:"peran"`
 }
 
-func CekStaff(ctx context.Context, email string) (user string, token string) {
+func CekStaff(ctx context.Context, email string) (user string, token string, peran string) {
 	var staf []Staff
 	q := datastore.NewQuery("Staff").Filter("Email=", email)
 
@@ -31,16 +29,18 @@ func CekStaff(ctx context.Context, email string) (user string, token string) {
 	}
 	user = ""
 	token = ""
+	peran = ""
 	if len(staf) == 0 {
 		user = "no-access"
-		return user, token
+		return user, token, peran
 	}
 
 	for _, v := range staf {
 		token = CreateToken(ctx, v.Email)
 		user = v.NamaLengkap
+		peran = v.Peran
 	}
-	return user, token
+	return user, token, peran
 }
 
 func GetMainContent(c context.Context, user, token, email string) *MainView {

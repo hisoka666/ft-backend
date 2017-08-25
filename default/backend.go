@@ -90,10 +90,13 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 	log.Infof(ctx, dat["email"])
 
-	user, token := ft.CekStaff(ctx, dat["email"])
+	user, token, peran := ft.CekStaff(ctx, dat["email"])
 
 	if user == "no-access" {
 		fmt.Fprintln(w, "no-access")
+	} else if peran == "admin" {
+		web := ft.AdminPage(ctx, token)
+		json.NewEncoder(w).Encode(web)
 	} else {
 		web := ft.GetMainContent(ctx, user, token, dat["email"])
 		// js := ft.ConvertJSON(web)

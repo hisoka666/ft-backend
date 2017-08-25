@@ -4,6 +4,10 @@ import (
 	"time"
 )
 
+type Staff struct {
+	Email, NamaLengkap, LinkID, Peran string
+}
+
 // type MainView struct {
 // 	Token  string   `json:"token"`
 // 	User   string   `json:"user"`
@@ -86,4 +90,14 @@ type InputObat struct {
 	SediaanLainnya []string `json:"lainnya_sediaan"`
 	Rekomendasi    string   `json:"rekom"`
 	Dokter         string   `json:"doc"`
+}
+
+type Admin struct {
+	Staff *[]Staff `json:"list"`
+	Token string   `json:"token"`
+}
+type ListIKI struct {
+	Tanggal int `json:"tgl"`
+	SumIKI1 int `json:"iki1"`
+	SumIKI2 int `json:"iki2"`
 }

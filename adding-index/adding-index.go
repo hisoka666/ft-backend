@@ -15,6 +15,8 @@ import (
 
 func init() {
 	http.HandleFunc("/", index)
+	http.HandleFunc("/obat", indexObat)
+	http.HandleFunc("/deleteobat/", deleteObat)
 }
 
 type DataPasien struct {
@@ -27,6 +29,81 @@ type IndexDataPasien struct {
 	NoCM string
 }
 
+type IndexObat struct {
+	MerkDagang string `json:"merk"`
+	Kandungan  string `json:"kandungan"`
+	Link       string `json:"link"`
+}
+
+type InputObat struct {
+	MerkDagang     string   `json:"merk"`
+	Kandungan      string   `json:"kand"`
+	MinDose        string   `json:"mindose"`
+	MaxDose        string   `json:"maxdose"`
+	Tablet         []string `json:"tab"`
+	Sirup          []string `json:"syr"`
+	Drop           []string `json:"drop"`
+	Lainnya        string   `json:"lainnya"`
+	SediaanLainnya []string `json:"lainnya_sediaan"`
+	Rekomendasi    string   `json:"rekom"`
+	Dokter         string   `json:"doc"`
+}
+
+func deleteObat(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	index, err := search.Open("DataObat")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	id := r.URL.Path[12:]
+	err = index.Delete(ctx, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprint(w, "Deleted document: ", id)
+}
+func indexObat(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+
+	q := datastore.NewQuery("InputObat")
+	t := q.Run(ctx)
+	for {
+		var obt InputObat
+		k, err := t.Next(&obt)
+		if err == datastore.Done {
+			log.Infof(ctx, "Tidak ada data lagi")
+			break
+		}
+		if err != nil {
+			log.Infof(ctx, "Mengambil data selanjutnya: %v", err)
+			break
+		}
+
+		ind := &IndexObat{
+			MerkDagang: obt.MerkDagang,
+			Kandungan:  obt.Kandungan,
+			Link:       k.Encode(),
+		}
+
+		index, err := search.Open("DataObat")
+		if err != nil {
+			log.Errorf(ctx, "Terjadi kesalahan saat membuat dokumen: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		ke, err := index.Put(ctx, k.Encode(), ind)
+		if err != nil {
+			log.Errorf(ctx, "Terjadi kesalahan saat memasukkan dokumen: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		log.Infof(ctx, "Key untuk index obat adalah : %v", ke)
+	}
+	fmt.Fprintln(w, "all is well")
+}
 func index(w http.ResponseWriter, r *http.Request) {
 	nextnum, _ := strconv.Atoi(r.URL.Path[1:])
 
