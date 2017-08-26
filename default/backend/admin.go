@@ -11,7 +11,20 @@ func AdminPage(c context.Context, token string) MainView {
 	staf := []Staff{}
 	st := &Staff{}
 	q := datastore.NewQuery("Staff").Filter("Peran =", "staf")
+	p := datastore.NewQuery("Staff").Filter("Peran =", "supervisor")
 	// q := datastore.NewQuery("Staff")
+	s := p.Run(c)
+	for {
+		k, err := s.Next(st)
+		if err == datastore.Done {
+			break
+		}
+		if err != nil {
+			LogError(c, err)
+		}
+		st.LinkID = k.Encode()
+		staf = append(staf, *st)
+	}
 	t := q.Run(c)
 	for {
 		k, err := t.Next(st)
