@@ -30,6 +30,23 @@ type Pasien struct {
 	LinkID       string    `json:"link"`
 	TglAsli      time.Time `json:"tglasli"`
 }
+type SupervisorListPasien struct {
+	TglKunjungan time.Time `json:"tgl"`
+	ATS          string    `json:"ats"`
+	Dept         string    `json:"dept"`
+	Diagnosis    string    `json:"diag"`
+	LinkID       string    `json:"link"`
+}
+
+type SupervisorList struct {
+	StatusServer   string                 `json:"status"`
+	ListPasien     []SupervisorListPasien `json:"listpasien"`
+	Token          string                 `json:"token"`
+	SupervisorName string                 `json:"user"`
+	ListBulan      []string               `json:"listbulan"`
+	PerHari        []int                  `json:"perhari"`
+	PerDeptPerHari []Departemen           `json:"perdept"`
+}
 
 //Ini untuk menyimpan jumlah iki yang diperoleh
 // type List struct {

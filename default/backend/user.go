@@ -10,13 +10,14 @@ import (
 )
 
 type MainView struct {
-	Token  string    `json:"token"`
-	User   string    `json:"user"`
-	Bulan  []string  `json:"bulan"`
-	Pasien []Pasien  `json:"pasien"`
-	IKI    []ListIKI `json:"list"`
-	Admin  Admin     `json:"admin"`
-	Peran  string    `json:"peran"`
+	Token      string         `json:"token"`
+	User       string         `json:"user"`
+	Bulan      []string       `json:"bulan"`
+	Pasien     []Pasien       `json:"pasien"`
+	IKI        []ListIKI      `json:"list"`
+	Admin      Admin          `json:"admin"`
+	Supervisor SupervisorList `json:"supervisor"`
+	Peran      string         `json:"peran"`
 }
 
 func CekStaff(ctx context.Context, email string) (user string, token string, peran string) {

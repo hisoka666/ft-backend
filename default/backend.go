@@ -97,9 +97,10 @@ func login(w http.ResponseWriter, r *http.Request) {
 	} else if peran == "admin" {
 		web := ft.AdminPage(ctx, token)
 		json.NewEncoder(w).Encode(web)
-	} else if peran == "supervisor"{
-		web := ft.SupervisorPage(ctx, token)
-	}else{
+	} else if peran == "supervisor" {
+		web := ft.SupervisorPage(ctx, token, user)
+		json.NewEncoder(w).Encode(web)
+	} else {
 		web := ft.GetMainContent(ctx, user, token, dat["email"])
 		// js := ft.ConvertJSON(web)
 		// log.Infof(ctx, string(js))
