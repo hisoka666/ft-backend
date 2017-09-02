@@ -67,6 +67,7 @@ func getBulanIni(w http.ResponseWriter, r *http.Request) {
 	tgl := pts.Bulan[0]
 	log.Infof(ctx, "User %s sedang mencoba mengakses data %s", pts.User, tgl)
 	nn := GetBulanIniList(ctx, pts.User, tgl)
+	log.Infof(ctx, "List bulan ini adalah: %v", nn)
 	json.NewEncoder(w).Encode(nn)
 }
 
@@ -81,11 +82,15 @@ func getBulan(w http.ResponseWriter, r *http.Request) {
 }
 func GetBulanIniList(c context.Context, email, tgl string) []Pasien {
 	q := datastore.NewQuery("KunjunganPasien").Filter("Dokter=", email).Filter("Hide=", false).Order("-JamDatang")
-	strmon := tgl + "/01"
-	mon, err := time.Parse("2006/01/02", strmon)
+	// strmon := tgl + "/01 08:00:00"
+	strmon := tgl + "/01 00:00:00 +0800"
+	// zone, _ := time.LoadLocation("Asia/Makassar")
+	// mon, err := time.Parse("2006/01/02 15:04:05", strmon)
+	mon, err := time.Parse("2006/01/02 15:04:05 -0700", strmon)
 	if err != nil {
 		LogError(c, err)
 	}
+	log.Infof(c, "Awal bulan adalah: %v", mon)
 	t := q.Run(c)
 	if err != nil {
 		LogError(c, err)
@@ -102,12 +107,14 @@ func GetBulanIniList(c context.Context, email, tgl string) []Pasien {
 		}
 
 		jamEdit := AdjustTime(kun.JamDatang, kun.ShiftJaga)
+		log.Infof(c, "Jam adjusted adalah: %v", jamEdit)
+		log.Infof(c, "jam before true? %v", jamEdit.Before(mon))
 		if jamEdit.Before(mon) == true {
 			break
 		}
 
 		n := ConvertDatastore(c, kun, k)
-
+		log.Infof(c, "Converted database: %v", n)
 		m = append(m, *n)
 	}
 	for i, j := 0, len(m)-1; i < j; i, j = i+1, j-1 {
@@ -154,9 +161,9 @@ func GetListbyKursor(c context.Context, email, tgl string) []Pasien {
 			LogError(c, err)
 			break
 		}
-		log.Infof(c, "Jam datang adalah : %v", j.JamDatang)
+		// log.Infof(c, "Jam datang adalah : %v", j.JamDatang)
 		jamAdjust := AdjustTime(j.JamDatang, j.ShiftJaga)
-		log.Infof(c, "Apakah sebelum? %v", jamAdjust.Before(monin))
+		// log.Infof(c, "Apakah sebelum? %v", jamAdjust.Before(monin))
 		if jamAdjust.Before(monin) == true {
 			break
 		}

@@ -165,7 +165,7 @@ func PerHari(c context.Context, n *[]SupervisorListPasien) ([]int, []Departemen)
 			if v.TglKunjungan.After(perhari.AddDate(0, 0, 1)) {
 				continue
 			}
-			// log.Infof(c, "Data hari ini: %v", v)
+			log.Infof(c, "Data hari ini: %v", v)
 			kun = append(kun, v)
 			jph++
 		}
