@@ -6,22 +6,36 @@ import (
 	"strconv"
 	"time"
 
-	"google.golang.org/appengine/search"
-
+	"golang.org/x/net/context"
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/datastore"
 	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/search"
 )
 
 func init() {
-	http.HandleFunc("/", index)
-	http.HandleFunc("/obat", indexObat)
+	// http.HandleFunc("/", index)
+	// http.HandleFunc("/obat", indexObat)
 	http.HandleFunc("/deleteobat/", deleteObat)
+	http.HandleFunc("/igdbulan", igdBulan)
 }
 
+type KunjunganPasien struct {
+	Diagnosis, LinkID      string
+	GolIKI, ATS, ShiftJaga string
+	JamDatang              time.Time
+	Dokter                 string
+	Hide                   bool
+	JamDatangRiil          time.Time
+	Bagian                 string
+}
 type DataPasien struct {
 	NamaPasien, NomorCM, JenKel, Alamat string
 	TglDaftar, Umur                     time.Time
+}
+type KursorIGD struct {
+	Bulan string `json:"bulan"`
+	Point string `json:"point"`
 }
 
 type IndexDataPasien struct {
@@ -49,6 +63,74 @@ type InputObat struct {
 	Dokter         string   `json:"doc"`
 }
 
+func igdBulan(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	q := datastore.NewQuery("KunjunganPasien").Filter("Hide=", false).Order("-JamDatang")
+	t := q.Run(c)
+	kur := KursorIGD{}
+	kun := KunjunganPasien{}
+	// days := time.Date(yr,time.Month(mo),0,0,0,0,0,zone).Day()
+	// mon := time.Date()
+	// zone, _ := time.LoadLocation("Asia/Makassar")
+	// todayIs := time.Now().In(zone)
+	// hariini := time.Date(todayIs.Year(), todayIs.Month(), 1, 8, 0, 0, 0, zone)
+	// tgl := hariini.AddDate(0, -1, 0).Format("2006/01")
+	// _, kurKey := DatastoreKey(c, "KursorIGD", tgl, "", "")
+	// log.Infof(c, "Waktu lokal adalah: %v", hariini)
+	for i := 8; i > 1; i-- {
+		zone, _ := time.LoadLocation("Asia/Makassar")
+		todayIs := time.Now().In(zone)
+		hariini := time.Date(todayIs.Year(), time.Month(i), 1, 8, 0, 0, 0, zone)
+		tgl := hariini.Format("2006/01")
+		kurKey, _ := DatastoreKey(c, "KursorIGD", tgl, "", "")
+		// log.Infof(c, "Key adalah: %v", kurKey)
+		for {
+			_, err := t.Next(&kun)
+			if err == datastore.Done {
+				log.Infof(c, "Data tidak ditemukan!")
+				break
+			}
+			if err != nil {
+				log.Infof(c, "Kesalahan membaca database: %v", err)
+				break
+				// LogError(c, err)
+			}
+
+			// jamEdit := AdjustTime(kun.JamDatang, kun.ShiftJaga)
+			// log.Infof(c, "Jamedit adalah: %v", jamEdit)
+			// log.Infof(c, "Apakah hari ini sebelum tanggal 1? %v", jamEdit.Before(hariini))
+			if kun.JamDatang.Before(hariini) == true {
+				cursor, _ := t.Cursor()
+				kur.Point = cursor.String()
+				kur.Bulan = tgl
+				k, err := datastore.Put(c, kurKey, &kur)
+				if err != nil {
+					log.Errorf(c, "Kesalahan menulis database: %v", err)
+					break
+				}
+				// log.Infof(c, "key kursor adalah: %v", k)
+				// err = datastore.Get(c, k, &kur)
+				// if err != nil {
+				// 	log.Errorf(c, "Gagal memperoleh data : %v", err)
+				// 	break
+				// }
+				// log.Infof(c, "Kursor adalah: %v", kur.Point)
+				// log.Infof(c, "key kursor adalah: %v", k)
+				log.Infof(c, "Berhasil menambahkan kursor %v", k)
+				break
+			}
+		}
+	}
+
+}
+
+func DatastoreKey(ctx context.Context, kind1 string, id1 string, kind2 string, id2 string) (*datastore.Key, *datastore.Key) {
+	gpKey := datastore.NewKey(ctx, "IGD", "fasttrack", 0, nil)
+	parKey := datastore.NewKey(ctx, kind1, id1, 0, gpKey)
+	chldKey := datastore.NewKey(ctx, kind2, id2, 0, parKey)
+
+	return parKey, chldKey
+}
 func deleteObat(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	index, err := search.Open("DataObat")

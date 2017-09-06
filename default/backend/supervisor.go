@@ -9,27 +9,11 @@ import (
 	"google.golang.org/appengine/log"
 )
 
-type Departemen struct {
-	Interna   int `json:"interna"`
-	Bedah     int `json:"bedah"`
-	Anak      int `json:"anak"`
-	Obgyn     int `json:"obgyn"`
-	Saraf     int `json:"saraf"`
-	Anestesi  int `json:"anes"`
-	Psikiatri int `json:"psik"`
-	THT       int `json:"tht"`
-	Kulit     int `json:"kulit"`
-	Kardio    int `json:"jant"`
-	Umum      int `json:"umum"`
-	Mata      int `json:"mata"`
-	MOD       int `json:"mod"`
-}
-
 func SupervisorPage(c context.Context, token string, user string) *MainView {
 	skrng, zone := CreateTime()
 	awal := time.Date(skrng.Year(), skrng.Month(), 1, 8, 0, 0, 0, zone)
-	awal = awal.AddDate(0, -1, 0)
-	q := datastore.NewQuery("KunjunganPasien").Filter("JamDatang >=", awal).Order("-JamDatang")
+	// awal = awal.AddDate(0, -1, 0)
+	q := datastore.NewQuery("KunjunganPasien").Filter("JamDatang >=", awal).Filter("Hide=", false).Order("-JamDatang")
 	t := q.Run(c)
 	sup := SupervisorList{}
 	kun := []SupervisorListPasien{}
@@ -55,20 +39,38 @@ func SupervisorPage(c context.Context, token string, user string) *MainView {
 	sup.StatusServer = "OK"
 	sup.SupervisorName = user
 	sup.ListPasien = kun
-	har, dep := PerHari(c, &kun)
+	har, dep, shift := PerHari(c, &kun)
 	sup.PerHari = har
 	sup.PerDeptPerHari = dep
+	sup.PerShiftPerHari = shift
 	// log.Infof(c, "List adalah: %v", sup.ListPasien)
 	main := &MainView{
 		Token:      token,
 		User:       user,
 		Supervisor: sup,
 		Peran:      "supervisor",
+		Bulan:      getIGDBulan(c),
 	}
+	log.Infof(c, "List bulan adalah: %v", getIGDBulan(c))
 	return main
 
 }
+func getIGDBulan(c context.Context) []string {
+	kur := []KursorIGD{}
+	q := datastore.NewQuery("KursorIGD").Order("-Bulan")
+	n, err := q.GetAll(c, &kur)
+	if err != nil {
+		log.Errorf(c, "Kesalahan membaca kursor database: %v", err)
+		return nil
+	}
+	var list []string
+	for _, v := range n {
+		list = append(list, v.StringID())
+	}
 
+	return list
+
+}
 func ConvertData(k *datastore.Key, n KunjunganPasien, zone *time.Location) *SupervisorListPasien {
 	m := &SupervisorListPasien{
 		TglKunjungan: n.JamDatangRiil.In(zone),
@@ -140,17 +142,18 @@ func perBagian(n []SupervisorListPasien) *Departemen {
 	return m
 }
 
-func PerHari(c context.Context, n *[]SupervisorListPasien) ([]int, []Departemen) {
-	d, z := CreateTime()
-	t := d.AddDate(0, -1, 0)
+func PerHari(c context.Context, n *[]SupervisorListPasien) ([]int, []Departemen, []PerShift) {
+	t, z := CreateTime()
+	// t := d.AddDate(0, -1, 0)
 	hari := time.Date(t.Year(), t.Month(), 0, 0, 0, 0, 0, z).Day()
 	jml := []int{}
 	deptlist := []Departemen{}
+	shf := []PerShift{}
 	// var jmlperhari *int
 	for i := 1; i < hari; i++ {
 		perhari := time.Date(t.Year(), t.Month(), i, 8, 0, 0, 0, z)
-		log.Infof(c, "Tanggal : %v", perhari)
-		log.Infof(c, "Tanggal besok : %v", perhari.AddDate(0, 0, 1))
+		// log.Infof(c, "Tanggal : %v", perhari)
+		// log.Infof(c, "Tanggal besok : %v", perhari.AddDate(0, 0, 1))
 		kun := []SupervisorListPasien{}
 		jph := 0
 		// dat := &SupervisorListPasien{}
@@ -166,14 +169,36 @@ func PerHari(c context.Context, n *[]SupervisorListPasien) ([]int, []Departemen)
 				continue
 			}
 			log.Infof(c, "Data hari ini: %v", v)
+
 			kun = append(kun, v)
 			jph++
 		}
-
+		shf = append(shf, perShift(kun, perhari))
 		deptlist = append(deptlist, *perBagian(kun))
 		jml = append(jml, jph)
 
 	}
 
-	return jml, deptlist
+	return jml, deptlist, shf
+}
+
+func perShift(k []SupervisorListPasien, t time.Time) PerShift {
+	sore := t.Add(time.Hour * 6)
+	malam := t.Add(time.Hour * 12)
+	var j PerShift
+	var jpagi, jsore, jmalam []SupervisorListPasien
+	for _, v := range k {
+		if v.TglKunjungan.Before(sore) {
+			jpagi = append(jpagi, v)
+		} else if v.TglKunjungan.After(malam) {
+			jmalam = append(jmalam, v)
+		} else {
+			jsore = append(jsore, v)
+		}
+	}
+	j.Pagi = len(jpagi)
+	j.Sore = len(jsore)
+	j.Malam = len(jmalam)
+	j.Total = (j.Pagi + j.Sore + j.Malam)
+	return j
 }

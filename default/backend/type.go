@@ -37,15 +37,19 @@ type SupervisorListPasien struct {
 	Diagnosis    string    `json:"diag"`
 	LinkID       string    `json:"link"`
 }
-
+type KursorIGD struct {
+	Bulan string `json:"bulan"`
+	Point string `json:"point"`
+}
 type SupervisorList struct {
-	StatusServer   string                 `json:"status"`
-	ListPasien     []SupervisorListPasien `json:"listpasien"`
-	Token          string                 `json:"token"`
-	SupervisorName string                 `json:"user"`
-	ListBulan      []string               `json:"listbulan"`
-	PerHari        []int                  `json:"perhari"`
-	PerDeptPerHari []Departemen           `json:"perdept"`
+	StatusServer    string                 `json:"status"`
+	ListPasien      []SupervisorListPasien `json:"listpasien"`
+	Token           string                 `json:"token"`
+	SupervisorName  string                 `json:"user"`
+	ListBulan       []string               `json:"listbulan"`
+	PerHari         []int                  `json:"perhari"`
+	PerDeptPerHari  []Departemen           `json:"perdept"`
+	PerShiftPerHari []PerShift             `json:"shift"`
 }
 
 //Ini untuk menyimpan jumlah iki yang diperoleh
@@ -117,4 +121,36 @@ type ListIKI struct {
 	Tanggal int `json:"tgl"`
 	SumIKI1 int `json:"iki1"`
 	SumIKI2 int `json:"iki2"`
+}
+type MainView struct {
+	Token      string         `json:"token"`
+	User       string         `json:"user"`
+	Bulan      []string       `json:"bulan"`
+	Pasien     []Pasien       `json:"pasien"`
+	IKI        []ListIKI      `json:"list"`
+	Admin      Admin          `json:"admin"`
+	Supervisor SupervisorList `json:"supervisor"`
+	Peran      string         `json:"peran"`
+}
+type Departemen struct {
+	Interna   int `json:"interna"`
+	Bedah     int `json:"bedah"`
+	Anak      int `json:"anak"`
+	Obgyn     int `json:"obgyn"`
+	Saraf     int `json:"saraf"`
+	Anestesi  int `json:"anes"`
+	Psikiatri int `json:"psik"`
+	THT       int `json:"tht"`
+	Kulit     int `json:"kulit"`
+	Kardio    int `json:"jant"`
+	Umum      int `json:"umum"`
+	Mata      int `json:"mata"`
+	MOD       int `json:"mod"`
+}
+
+type PerShift struct {
+	Pagi  int `json:"pagi"`
+	Sore  int `json:"sore"`
+	Malam int `json:"malam"`
+	Total int `json:"total"`
 }

@@ -23,8 +23,30 @@ func init() {
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/createkursor", createKursor)
 	http.HandleFunc("/createsecret", createSecret)
+	http.Handle("/getsupmonth", ft.CekToken(http.HandlerFunc(getSupBulan)))
+
 }
 
+func getSupBulan(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	kur := &ft.KursorIGD{}
+	json.NewDecoder(r.Body).Decode(kur)
+	list, monini := ft.GetListSupbyKursor(ctx, kur.Bulan)
+	log.Infof(ctx, "List adalah: %v", &list)
+
+	hari, dept, shift := ft.PerHariPerBulan(ctx, &list, monini)
+	log.Infof(ctx, "perhari adalah: %v", hari)
+	log.Infof(ctx, "perdept adalah: %v", dept)
+	log.Infof(ctx, "pershift adalah: %v", shift)
+	send := &ft.SupervisorList{
+		StatusServer:    "OK",
+		PerHari:         hari,
+		PerDeptPerHari:  dept,
+		PerShiftPerHari: shift,
+	}
+	json.NewEncoder(w).Encode(send)
+
+}
 func createKursor(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	var staf []ft.Staff
@@ -37,6 +59,7 @@ func createKursor(w http.ResponseWriter, r *http.Request) {
 	for _, v := range staf {
 		ft.CreateEndKursor(ctx, v.Email)
 	}
+	ft.CreateKursorIGD(ctx)
 
 }
 
