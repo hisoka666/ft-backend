@@ -11,13 +11,14 @@ import (
 
 func GetListSupbyKursor(c context.Context, tgl string) ([]SupervisorListPasien, time.Time) {
 	kurKey, _ := DatastoreKey(c, "KursorIGD", tgl, "", "")
-	// log.Infof(c, "Key adalah: %s", kurKey)
+	log.Infof(c, "tgl adalah: %s", tgl)
 	yr, _ := strconv.Atoi(tgl[:4])
 	mo, _ := strconv.Atoi(tgl[5:7])
 	zone, _ := time.LoadLocation("Asia/Makassar")
 	q := datastore.NewQuery("KunjunganPasien").Filter("Hide=", false).Order("-JamDatang")
-	monini := time.Date(yr, time.Month(mo), 0, 0, 0, 0, 0, zone)
+	monini := time.Date(yr, time.Month(mo+1), 0, 0, 0, 0, 0, zone)
 	// jmlhari := monini.Day()
+	log.Infof(c, "tanggal akhir adalah: %v", monini)
 	kur := KursorIGD{}
 	err := datastore.Get(c, kurKey, &kur)
 	if err != nil {
@@ -54,41 +55,48 @@ func GetListSupbyKursor(c context.Context, tgl string) ([]SupervisorListPasien, 
 			LogError(c, err)
 			break
 		}
+		log.Infof(c, "tanggal untuk list adalah: %v", j.JamDatangRiil)
 		// log.Infof(c, "Jam datang adalah : %v", j.JamDatang)
 		// jamAdjust := AdjustTime(j.JamDatang, j.ShiftJaga)
 		// log.Infof(c, "Apakah sebelum? %v", jamAdjust.Before(monin))
 		if j.JamDatangRiil.Before(monin) == true {
 			break
 		}
-
+		log.Infof(c, "berarti jam datang riil before false")
 		n := ConvertData(k, j, zone)
 		// log.Infof(c, "Tanggal ini isinya: %v", n)
 
-		m = append(m, *n)
+		m = append(m, n)
 	}
 
 	for i, j := 0, len(m)-1; i < j; i, j = i+1, j-1 {
 		m[i], m[j] = m[j], m[i]
 	}
 
-	// log.Infof(c, "list adalah : %v", m)
+	log.Infof(c, "list hasil kursor adalah : %v", m)
 	return m, monini
 }
-func PerHariPerBulan(c context.Context, n *[]SupervisorListPasien, bul time.Time) ([]int, []Departemen, []PerShift) {
+func PerHariPerBulan(c context.Context, n []SupervisorListPasien, bul time.Time) ([]int, []Departemen, []PerShift) {
 	jml := []int{}
 	deptlist := []Departemen{}
 	shf := []PerShift{}
 	har := bul.Day()
+	zone, _ := time.LoadLocation("Asia/Makassar")
+	tang := time.Date(bul.Year(), bul.Month(), 0, 0, 0, 0, 0, zone)
+	log.Infof(c, "List untuk perhariperbulan adalah: %v", n)
 	for i := 1; i <= har; i++ {
-		perhari := bul.AddDate(0, 0, i)
-		log.Infof(c, "Tanggal: %v", perhari)
+		perhari := tang.AddDate(0, 0, i)
 		kun := []SupervisorListPasien{}
 		jph := 0
-		for _, v := range *n {
+		for _, v := range n {
+			log.Infof(c, "Tanggal before?: %v", v.TglKunjungan.Before(perhari))
+			log.Infof(c, "Tanggal after?: %v", v.TglKunjungan.After(perhari.AddDate(0, 0, 1)))
 			if v.TglKunjungan.Before(perhari) {
+				log.Infof(c, "berarti before true")
 				continue
 			}
 			if v.TglKunjungan.After(perhari.AddDate(0, 0, 1)) {
+				log.Infof(c, "berarti after true")
 				continue
 			}
 			kun = append(kun, v)
@@ -98,7 +106,7 @@ func PerHariPerBulan(c context.Context, n *[]SupervisorListPasien, bul time.Time
 		deptlist = append(deptlist, *perBagian(kun))
 		jml = append(jml, jph)
 	}
-
+	log.Infof(c, "list2 yang di return adalah: %v, %v, %v", jml, deptlist, shf)
 	return jml, deptlist, shf
 }
 
@@ -172,9 +180,10 @@ func CreateKursorIGD(c context.Context) {
 		}
 
 		// jamEdit := AdjustTime(kun.JamDatang, kun.ShiftJaga)
-		// log.Infof(c, "Jamedit adalah: %v", jamEdit)
+		log.Infof(c, "JamDatang adalah: %v", kun.JamDatangRiil)
+		log.Infof(c, "bulan ini adalah: %v", hariini)
 		// log.Infof(c, "Apakah hari ini sebelum tanggal 1? %v", jamEdit.Before(hariini))
-		if kun.JamDatang.Before(hariini) == true {
+		if kun.JamDatangRiil.Before(hariini) == true {
 			cursor, _ := t.Cursor()
 			kur.Point = cursor.String()
 			kur.Bulan = tgl

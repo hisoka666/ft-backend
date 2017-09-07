@@ -29,7 +29,7 @@ func SupervisorPage(c context.Context, token string, user string) *MainView {
 		}
 
 		m := ConvertData(k, dat, zone)
-		kun = append(kun, *m)
+		kun = append(kun, m)
 	}
 
 	for i, j := 0, len(kun)-1; i < j; i, j = i+1, j-1 {
@@ -38,8 +38,8 @@ func SupervisorPage(c context.Context, token string, user string) *MainView {
 	sup.Token = token
 	sup.StatusServer = "OK"
 	sup.SupervisorName = user
-	sup.ListPasien = kun
-	har, dep, shift := PerHari(c, &kun)
+	// sup.ListPasien = kun
+	har, dep, shift := PerHari(c, kun)
 	sup.PerHari = har
 	sup.PerDeptPerHari = dep
 	sup.PerShiftPerHari = shift
@@ -71,8 +71,8 @@ func getIGDBulan(c context.Context) []string {
 	return list
 
 }
-func ConvertData(k *datastore.Key, n KunjunganPasien, zone *time.Location) *SupervisorListPasien {
-	m := &SupervisorListPasien{
+func ConvertData(k *datastore.Key, n KunjunganPasien, zone *time.Location) SupervisorListPasien {
+	m := SupervisorListPasien{
 		TglKunjungan: n.JamDatangRiil.In(zone),
 		ATS:          n.ATS,
 		Dept:         n.Bagian,
@@ -139,12 +139,14 @@ func perBagian(n []SupervisorListPasien) *Departemen {
 		MOD:       mod,
 		Mata:      mata,
 	}
+	// log.Infof(c, "")
 	return m
 }
 
-func PerHari(c context.Context, n *[]SupervisorListPasien) ([]int, []Departemen, []PerShift) {
+func PerHari(c context.Context, n []SupervisorListPasien) ([]int, []Departemen, []PerShift) {
 	t, z := CreateTime()
 	// t := d.AddDate(0, -1, 0)
+	log.Infof(c, "list untuk perhari adalah: %v", n)
 	hari := time.Date(t.Year(), t.Month(), 0, 0, 0, 0, 0, z).Day()
 	jml := []int{}
 	deptlist := []Departemen{}
@@ -157,7 +159,7 @@ func PerHari(c context.Context, n *[]SupervisorListPasien) ([]int, []Departemen,
 		kun := []SupervisorListPasien{}
 		jph := 0
 		// dat := &SupervisorListPasien{}
-		for _, v := range *n {
+		for _, v := range n {
 			// log.Infof(c, "Is before true? %v", v.TglKunjungan.Before(perhari))
 			// log.Infof(c, "Is after true? %v", v.TglKunjungan.After(perhari.AddDate(0, 0, 1)))
 			// jml = []int{}

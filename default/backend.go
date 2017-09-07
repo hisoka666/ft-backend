@@ -24,7 +24,13 @@ func init() {
 	http.HandleFunc("/createkursor", createKursor)
 	http.HandleFunc("/createsecret", createSecret)
 	http.Handle("/getsupmonth", ft.CekToken(http.HandlerFunc(getSupBulan)))
+	http.Handle("/getsupmonthnow", ft.CekToken(http.HandlerFunc(getSupBulanNow)))
+}
 
+func getSupBulanNow(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	web := ft.SupervisorPage(ctx, "", "")
+	json.NewEncoder(w).Encode(web)
 }
 
 func getSupBulan(w http.ResponseWriter, r *http.Request) {
@@ -32,9 +38,9 @@ func getSupBulan(w http.ResponseWriter, r *http.Request) {
 	kur := &ft.KursorIGD{}
 	json.NewDecoder(r.Body).Decode(kur)
 	list, monini := ft.GetListSupbyKursor(ctx, kur.Bulan)
-	log.Infof(ctx, "List adalah: %v", &list)
+	log.Infof(ctx, "List adalah: %v", list)
 
-	hari, dept, shift := ft.PerHariPerBulan(ctx, &list, monini)
+	hari, dept, shift := ft.PerHariPerBulan(ctx, list, monini)
 	log.Infof(ctx, "perhari adalah: %v", hari)
 	log.Infof(ctx, "perdept adalah: %v", dept)
 	log.Infof(ctx, "pershift adalah: %v", shift)

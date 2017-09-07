@@ -77,11 +77,11 @@ func igdBulan(w http.ResponseWriter, r *http.Request) {
 	// tgl := hariini.AddDate(0, -1, 0).Format("2006/01")
 	// _, kurKey := DatastoreKey(c, "KursorIGD", tgl, "", "")
 	// log.Infof(c, "Waktu lokal adalah: %v", hariini)
-	for i := 8; i > 1; i-- {
+	for i := 9; i > 1; i-- {
 		zone, _ := time.LoadLocation("Asia/Makassar")
 		todayIs := time.Now().In(zone)
 		hariini := time.Date(todayIs.Year(), time.Month(i), 1, 8, 0, 0, 0, zone)
-		tgl := hariini.Format("2006/01")
+		tgl := hariini.AddDate(0, -1, 0).Format("2006/01")
 		kurKey, _ := DatastoreKey(c, "KursorIGD", tgl, "", "")
 		// log.Infof(c, "Key adalah: %v", kurKey)
 		for {
@@ -95,11 +95,12 @@ func igdBulan(w http.ResponseWriter, r *http.Request) {
 				break
 				// LogError(c, err)
 			}
-
+			log.Infof(c, "hari ini adalah: %v", hariini)
+			log.Infof(c, "data jam datang adalah: %v", kun.JamDatangRiil)
 			// jamEdit := AdjustTime(kun.JamDatang, kun.ShiftJaga)
 			// log.Infof(c, "Jamedit adalah: %v", jamEdit)
 			// log.Infof(c, "Apakah hari ini sebelum tanggal 1? %v", jamEdit.Before(hariini))
-			if kun.JamDatang.Before(hariini) == true {
+			if kun.JamDatangRiil.Before(hariini) == true {
 				cursor, _ := t.Cursor()
 				kur.Point = cursor.String()
 				kur.Bulan = tgl
