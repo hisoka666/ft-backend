@@ -1,4 +1,4 @@
-package ubah_tanggal
+package pasien
 
 import (
 	"encoding/json"
@@ -7,16 +7,56 @@ import (
 	"net/http"
 	"time"
 
+	"google.golang.org/appengine/datastore"
+
 	"cloud.google.com/go/storage"
 	jwt "github.com/dgrijalva/jwt-go"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine"
-	"google.golang.org/appengine/datastore"
 	"google.golang.org/appengine/log"
 )
 
 func init() {
-	http.Handle("/", CekToken(http.HandlerFunc(editDate)))
+	http.Handle("/", CekToken(http.HandlerFunc(getPasienDetail)))
+}
+
+type DetailPasien struct {
+	Pasien    DataPasien        `json:"datapts"`
+	Kunjungan []KunjunganPasien `json:"kunjungan"`
+	LinkID    string            `json:"link"`
+}
+
+type KunjunganPasien struct {
+	Diagnosis, LinkID      string
+	GolIKI, ATS, ShiftJaga string
+	JamDatang              time.Time
+	Dokter                 string
+	Hide                   bool
+	JamDatangRiil          time.Time
+	Bagian                 string
+}
+type DataPasien struct {
+	NamaPasien string    `json:"namapts"`
+	NomorCM    string    `json:"nocm"`
+	JenKel     string    `json:"jenkel"`
+	Alamat     string    `json:"alamat"`
+	TglDaftar  time.Time `json:"tgldaf"`
+	TglLahir   time.Time `json:"tgllhr"`
+	Umur       time.Time `json:"umur"`
+}
+
+type Pasien struct {
+	StatusServer string    `json:"stat"`
+	TglKunjungan string    `json:"tgl"`
+	ShiftJaga    string    `json:"shift"`
+	ATS          string    `json:"ats"`
+	Dept         string    `json:"dept"`
+	NoCM         string    `json:"nocm"`
+	NamaPasien   string    `json:"nama"`
+	Diagnosis    string    `json:"diag"`
+	IKI          string    `json:"iki"`
+	LinkID       string    `json:"link"`
+	TglAsli      time.Time `json:"tglasli"`
 }
 
 func CekToken(next http.Handler) http.Handler {
@@ -90,84 +130,46 @@ func LogError(c context.Context, e error) {
 	return
 }
 
-func editDate(w http.ResponseWriter, r *http.Request) {
+func getPasienDetail(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
-	pts := Pasien{}
+	pts := &Pasien{}
+	json.NewDecoder(r.Body).Decode(pts)
+	parent, _ := datastore.DecodeKey(pts.LinkID)
+	parKey := parent.Parent()
+	// log.Infof(ctx, "Key adalah: %v", parKey)
+	q := datastore.NewQuery("KunjunganPasien").Ancestor(parKey).Filter("Hide=", false).Order("-JamDatang")
+	t := q.Run(ctx)
+	var n []KunjunganPasien
+	for {
+		var j KunjunganPasien
 
-	json.NewDecoder(r.Body).Decode(&pts)
+		k, err := t.Next(&j)
+		// log.Infof(ctx, "Tgl Kunjungan adalah: %v", j.JamDatang)
+		if err == datastore.Done {
+			// log.Infof(ctx, "Database habis")
+			break
+		}
 
-	resp := GetKunPasien(ctx, pts.LinkID)
-
-	log.Infof(ctx, "Mengambil data pasien untuk diubah tanggalnya")
-	json.NewEncoder(w).Encode(resp)
-}
-
-type Pasien struct {
-	StatusServer string    `json:"stat"`
-	TglKunjungan string    `json:"tgl"`
-	ShiftJaga    string    `json:"shift"`
-	ATS          string    `json:"ats"`
-	Dept         string    `json:"dept"`
-	NoCM         string    `json:"nocm"`
-	NamaPasien   string    `json:"nama"`
-	Diagnosis    string    `json:"diag"`
-	IKI          string    `json:"iki"`
-	LinkID       string    `json:"link"`
-	TglAsli      time.Time `json:"tglasli"`
-}
-
-type KunjunganPasien struct {
-	Diagnosis, LinkID      string
-	GolIKI, ATS, ShiftJaga string
-	JamDatang              time.Time
-	Dokter                 string
-	Hide                   bool
-	JamDatangRiil          time.Time
-	Bagian                 string
-}
-
-type DataPasien struct {
-	NamaPasien string    `json:"namapts"`
-	NomorCM    string    `json:"nocm"`
-	JenKel     string    `json:"jenkel"`
-	Alamat     string    `json:"alamat"`
-	TglDaftar  time.Time `json:"tgldaf"`
-	TglLahir   time.Time `json:"tgllhr"`
-	Umur       time.Time `json:"umur"`
-}
-
-func GetKunPasien(c context.Context, link string) *Pasien {
-	var kun KunjunganPasien
-	var dat DataPasien
-
-	log.Infof(c, "Link adalah : %v", link)
-	keyKun, err := datastore.DecodeKey(link)
+		if err != nil {
+			LogError(ctx, err)
+			break
+		}
+		j.LinkID = k.Encode()
+		n = append(n, j)
+	}
+	var p DataPasien
+	err := datastore.Get(ctx, parKey, &p)
 	if err != nil {
-		LogError(c, err)
+		LogError(ctx, err)
+		return
 	}
-	err = datastore.Get(c, keyKun, &kun)
-	if err != nil {
-		LogError(c, err)
-	}
-	// log.Infof(c, "Diagnosis adalah: %v", kun.Diagnosis)
-	keyPts := keyKun.Parent()
-	// log.Infof(c, "No Cm adalah: %v", keyPts.StringID())
-	err = datastore.Get(c, keyPts, &dat)
-	if err != nil {
-		LogError(c, err)
+	p.NomorCM = parKey.StringID()
+	// log.Infof(ctx, "Nama pasien: %v", p.NamaPasien)
+	dat := &DetailPasien{
+		Pasien:    p,
+		Kunjungan: n,
+		LinkID:    parKey.Encode(),
 	}
 
-	pts := &Pasien{
-		NoCM:       keyPts.StringID(),
-		NamaPasien: dat.NamaPasien,
-		Diagnosis:  kun.Diagnosis,
-		ATS:        kun.ATS,
-		ShiftJaga:  kun.ShiftJaga,
-		Dept:       kun.Bagian,
-		IKI:        kun.GolIKI,
-		LinkID:     link,
-		TglAsli:    kun.JamDatangRiil.Add(time.Duration(8) * time.Hour),
-	}
-
-	return pts
+	json.NewEncoder(w).Encode(dat)
 }

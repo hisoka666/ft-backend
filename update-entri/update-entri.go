@@ -15,6 +15,39 @@ import (
 	"google.golang.org/appengine/log"
 )
 
+type KunjunganPasien struct {
+	Diagnosis, LinkID      string
+	GolIKI, ATS, ShiftJaga string
+	JamDatang              time.Time
+	Dokter                 string
+	Hide                   bool
+	JamDatangRiil          time.Time
+	Bagian                 string
+}
+
+type DataPasien struct {
+	NamaPasien string    `json:"namapts"`
+	NomorCM    string    `json:"nocm"`
+	JenKel     string    `json:"jenkel"`
+	Alamat     string    `json:"alamat"`
+	TglDaftar  time.Time `json:"tgldaf"`
+	TglLahir   time.Time `json:"tgllhr"`
+	Umur       time.Time `json:"umur"`
+}
+type Pasien struct {
+	StatusServer string    `json:"stat"`
+	TglKunjungan string    `json:"tgl"`
+	ShiftJaga    string    `json:"shift"`
+	ATS          string    `json:"ats"`
+	Dept         string    `json:"dept"`
+	NoCM         string    `json:"nocm"`
+	NamaPasien   string    `json:"nama"`
+	Diagnosis    string    `json:"diag"`
+	IKI          string    `json:"iki"`
+	LinkID       string    `json:"link"`
+	TglAsli      time.Time `json:"tglasli"`
+}
+
 func init() {
 	http.Handle("/", CekToken(http.HandlerFunc(UpdateEntri)))
 }
@@ -111,21 +144,6 @@ func UpdateEntri(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(up)
 }
 
-type KunjunganPasien struct {
-	Diagnosis, LinkID      string
-	GolIKI, ATS, ShiftJaga string
-	JamDatang              time.Time
-	Dokter                 string
-	Hide                   bool
-	JamDatangRiil          time.Time
-	Bagian                 string
-}
-
-type DataPasien struct {
-	NamaPasien, NomorCM, JenKel, Alamat string
-	TglDaftar, Umur                     time.Time
-}
-
 func getUpdateEntri(c context.Context, n *Pasien) (*Pasien, error) {
 
 	kun := &KunjunganPasien{}
@@ -187,20 +205,6 @@ func getUpdateEntri(c context.Context, n *Pasien) (*Pasien, error) {
 	n.StatusServer = "OK"
 	log.Infof(c, string(ConvertJSON(n)))
 	return n, nil
-}
-
-type Pasien struct {
-	StatusServer string    `json:"stat"`
-	TglKunjungan string    `json:"tgl"`
-	ShiftJaga    string    `json:"shift"`
-	ATS          string    `json:"ats"`
-	Dept         string    `json:"dept"`
-	NoCM         string    `json:"nocm"`
-	NamaPasien   string    `json:"nama"`
-	Diagnosis    string    `json:"diag"`
-	IKI          string    `json:"iki"`
-	LinkID       string    `json:"link"`
-	TglAsli      time.Time `json:"tglasli"`
 }
 
 func ConvertJSON(n interface{}) []byte {

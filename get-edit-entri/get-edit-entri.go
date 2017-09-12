@@ -132,8 +132,13 @@ type KunjunganPasien struct {
 }
 
 type DataPasien struct {
-	NamaPasien, NomorCM, JenKel, Alamat string
-	TglDaftar, Umur                     time.Time
+	NamaPasien string    `json:"namapts"`
+	NomorCM    string    `json:"nocm"`
+	JenKel     string    `json:"jenkel"`
+	Alamat     string    `json:"alamat"`
+	TglDaftar  time.Time `json:"tgldaf"`
+	TglLahir   time.Time `json:"tgllhr"`
+	Umur       time.Time `json:"umur"`
 }
 
 func GetKunPasien(c context.Context, link string) *Pasien {
