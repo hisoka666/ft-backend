@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	http.Handle("/", CekToken(http.HandlerFunc(getPasienDetail)))
+	http.Handle("/", CekToken(http.HandlerFunc(inputDetailPts)))
 }
 
 type DetailPasien struct {
@@ -130,48 +130,33 @@ func LogError(c context.Context, e error) {
 	return
 }
 
-func getPasienDetail(w http.ResponseWriter, r *http.Request) {
+func inputDetailPts(w http.ResponseWriter, r *http.Request) {
+	det := &DetailPasien{}
+	json.NewDecoder(r.Body).Decode(det)
+	defer r.Body.Close()
 	ctx := appengine.NewContext(r)
-	pts := &Pasien{}
-	json.NewDecoder(r.Body).Decode(pts)
-	parent, _ := datastore.DecodeKey(pts.LinkID)
-	parKey := parent.Parent()
-	// log.Infof(ctx, "Key adalah: %v", parKey)
-	q := datastore.NewQuery("KunjunganPasien").Ancestor(parKey).Filter("Hide=", false).Order("-JamDatang")
-	t := q.Run(ctx)
-	var n []KunjunganPasien
-	for {
-		var j KunjunganPasien
-
-		k, err := t.Next(&j)
-		// log.Infof(ctx, "Tgl Kunjungan adalah: %v", j.JamDatang)
-		if err == datastore.Done {
-			// log.Infof(ctx, "Database habis")
-			break
-		}
-
-		if err != nil {
-			LogError(ctx, err)
-			break
-		}
-		zone, _ := time.LoadLocation("Asia/Makassar")
-		j.JamDatang = j.JamDatang.In(zone)
-		j.LinkID = k.Encode()
-		n = append(n, j)
-	}
-	var p DataPasien
-	err := datastore.Get(ctx, parKey, &p)
+	key, err := datastore.DecodeKey(det.LinkID)
+	// log.Infof(ctx, "key adalah: %v", key)
 	if err != nil {
 		LogError(ctx, err)
-		return
-	}
-	p.NomorCM = parKey.StringID()
-	// log.Infof(ctx, "Nama pasien: %v", p.NamaPasien)
-	dat := &DetailPasien{
-		Pasien:    p,
-		Kunjungan: n,
-		LinkID:    parKey.Encode(),
 	}
 
-	json.NewEncoder(w).Encode(dat)
+	m := &DataPasien{}
+	err = datastore.Get(ctx, key, m)
+	if err != nil {
+		LogError(ctx, err)
+	}
+	// log.Infof(ctx, "Tgl Lahir baru adalah: %v", det.Pasien.TglLahir)
+	m.NomorCM = key.StringID()
+	m.NamaPasien = det.Pasien.NamaPasien
+	m.Alamat = det.Pasien.Alamat
+	m.TglLahir = det.Pasien.TglLahir
+	m.JenKel = det.Pasien.JenKel
+	det.Pasien = *m
+	// log.Infof(ctx, "Data baru adalah: %v", m)
+	_, err = datastore.Put(ctx, key, m)
+	if err != nil {
+		LogError(ctx, err)
+	}
+	json.NewEncoder(w).Encode(det)
 }
