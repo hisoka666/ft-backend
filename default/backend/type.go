@@ -136,6 +136,7 @@ type MainView struct {
 	Admin      Admin          `json:"admin"`
 	Supervisor SupervisorList `json:"supervisor"`
 	Peran      string         `json:"peran"`
+	LinkID     string         `json:"link"`
 }
 type Departemen struct {
 	Interna   int `json:"interna"`

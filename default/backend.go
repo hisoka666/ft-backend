@@ -119,7 +119,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 	log.Infof(ctx, dat["email"])
 
-	user, token, peran := ft.CekStaff(ctx, dat["email"])
+	user, token, peran, link := ft.CekStaff(ctx, dat["email"])
 
 	if user == "no-access" {
 		fmt.Fprintln(w, "no-access")
@@ -130,7 +130,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		web := ft.SupervisorPage(ctx, token, user)
 		json.NewEncoder(w).Encode(web)
 	} else {
-		web := ft.GetMainContent(ctx, user, token, dat["email"])
+		web := ft.GetMainContent(ctx, user, token, link, dat["email"])
 		// js := ft.ConvertJSON(web)
 		// log.Infof(ctx, string(js))
 		json.NewEncoder(w).Encode(web)

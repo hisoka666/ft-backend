@@ -9,37 +9,46 @@ import (
 	"google.golang.org/appengine/log"
 )
 
-func CekStaff(ctx context.Context, email string) (user string, token string, peran string) {
+func CekStaff(ctx context.Context, email string) (user, token, peran, link string) {
 	var staf []Staff
 	q := datastore.NewQuery("Staff").Filter("Email=", email)
 
-	_, err := q.GetAll(ctx, &staf)
+	k, err := q.GetAll(ctx, &staf)
 	if err != nil {
 		LogError(ctx, err)
 	}
 	user = ""
 	token = ""
 	peran = ""
+	link = ""
 	if len(staf) == 0 {
 		user = "no-access"
-		return user, token, peran
+		return user, token, peran, link
 	}
 
 	for _, v := range staf {
 		token = CreateToken(ctx, v.Email)
 		user = v.NamaLengkap
 		peran = v.Peran
+		link = k[0].Encode()
 	}
-	return user, token, peran
+	// var kunci *datastore.Key
+	// for _, n := range k {
+	// 	kunci = n
+	// }
+	log.Infof(ctx, "Link adalah: %v", link)
+	return user, token, peran, link
 }
 
-func GetMainContent(c context.Context, user, token, email string) *MainView {
+func GetMainContent(c context.Context, user, token, link, email string) *MainView {
 	web := &MainView{
 		Token:  token,
 		User:   user,
 		Bulan:  GetBulan(c, UserKey(c, email)),
 		Pasien: GetLast100(c, email),
+		LinkID: link,
 	}
+	log.Infof(c, "Link dari get main adalah: %v", web.LinkID)
 	return web
 }
 
