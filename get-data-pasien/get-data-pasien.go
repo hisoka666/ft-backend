@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -18,6 +19,8 @@ import (
 
 func init() {
 	http.Handle("/", CekToken(http.HandlerFunc(getCM)))
+	http.Handle("/get-detail", CekToken(http.HandlerFunc(getDetail)))
+	http.Handle("/add-surat-sakit", CekToken(http.HandlerFunc(addSuratSakit)))
 }
 
 type Pasien struct {
@@ -43,7 +46,193 @@ type DataPasien struct {
 	TglLahir   time.Time `json:"tgllhr"`
 	Umur       time.Time `json:"umur"`
 }
+type SuratSakit struct {
+	LinkID        string `json:"link"`
+	TglLahir      string `json:"tgl"`
+	Pekerjaan     string `json:"pekerjaan"`
+	Alamat        string `json:"alamat"`
+	LamaIstirahat string `json:"lama"`
+	StatusData    string `json:"status"`
+	Dokter        string `json:"dokter"`
+}
 
+type DataSuratSakit struct {
+	TglSurat      time.Time `json:"tglsurat"`
+	NomorSurat    int       `json:"nomor"`
+	LamaIstirahat string    `json:"lama"`
+	Pekerjaan     string    `json:"pekerjaan"`
+	LinkSurat     string    `json:"link"`
+	Dokter        string    `json:"dokter"`
+	NamaPasien    string    `json:"namapts"`
+	NoCM          string    `json:"nocm"`
+	Umur          string    `json:"umur"`
+	Alamat        string    `json:"alamat"`
+}
+
+func addSuratSakit(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	zone, _ := time.LoadLocation("Asia/Makassar")
+	sur := &SuratSakit{}
+	bulskrng := time.Now().In(zone).Format("01/2006")
+	kindSuratSakit := "DataSuratSakit" + bulskrng
+	json.NewDecoder(r.Body).Decode(sur)
+	// log.Infof(ctx, "Link adalah: %v", sur.LinkID)
+	// log.Infof(ctx, "Data status adalah: %v", sur.StatusData)
+	lahir, err := time.ParseInLocation("02-01-2006", sur.TglLahir, zone)
+	if err != nil {
+		log.Errorf(ctx, "Gagal parsing tanggal: %v", err)
+	}
+	umur := countAge(lahir)
+	keyEntri, err := datastore.DecodeKey(sur.LinkID)
+	if err != nil {
+		log.Errorf(ctx, "Gagal mengubah kunci: %v", err)
+	}
+	keyPar := keyEntri.Parent()
+	datapts := &DataPasien{}
+	err = datastore.Get(ctx, keyPar, datapts)
+	if err != nil {
+		log.Errorf(ctx, "Gagal Mengambil data: %v", err)
+	}
+	keySurat := datastore.NewIncompleteKey(ctx, kindSuratSakit, keyEntri)
+	q := datastore.NewQuery(kindSuratSakit).Order("-TglSurat")
+	t := q.Run(ctx)
+	for {
+		j := &DataSuratSakit{}
+		_, err := t.Next(j)
+		if err == datastore.ErrNoSuchEntity || err == datastore.Done {
+			if sur.StatusData == "data-ada" {
+				data := &DataSuratSakit{
+					TglSurat:      time.Now().In(zone),
+					NomorSurat:    1,
+					LamaIstirahat: sur.LamaIstirahat,
+					Pekerjaan:     sur.Pekerjaan,
+					LinkSurat:     keySurat.Encode(),
+					Umur:          umur,
+					NamaPasien:    datapts.NamaPasien,
+					Dokter:        sur.Dokter,
+					NoCM:          keyPar.StringID(),
+					Alamat:        sur.Alamat,
+				}
+				_, err := datastore.Put(ctx, keySurat, data)
+				if err != nil {
+					log.Infof(ctx, "Gagal menyimpan surat: %v", err)
+					return
+				}
+				data.NoCM = keyPar.StringID()
+				json.NewEncoder(w).Encode(data)
+			} else {
+				datapts.TglLahir = lahir
+				datapts.Alamat = sur.Alamat
+				_, err = datastore.Put(ctx, keyPar, datapts)
+				if err != nil {
+					log.Errorf(ctx, "Gagal menyimpan data: %v", err)
+				}
+				data := &DataSuratSakit{
+					TglSurat:      time.Now().In(zone),
+					NomorSurat:    1,
+					LamaIstirahat: sur.LamaIstirahat,
+					Pekerjaan:     sur.Pekerjaan,
+					LinkSurat:     keySurat.Encode(),
+					Umur:          umur,
+					NamaPasien:    datapts.NamaPasien,
+					Dokter:        sur.Dokter,
+					NoCM:          keyPar.StringID(),
+					Alamat:        sur.Alamat,
+				}
+				_, err = datastore.Put(ctx, keySurat, data)
+				if err != nil {
+					log.Infof(ctx, "Gagal menyimpan surat: %v", err)
+					return
+				}
+				data.NoCM = keyPar.StringID()
+				json.NewEncoder(w).Encode(data)
+
+			}
+			log.Infof(ctx, "berhasil menyimpan surat")
+			break
+		}
+
+		if sur.StatusData == "data-ada" {
+			m := &DataSuratSakit{
+				TglSurat:      time.Now().In(zone),
+				NomorSurat:    j.NomorSurat + 1,
+				LamaIstirahat: sur.LamaIstirahat,
+				Pekerjaan:     sur.Pekerjaan,
+				LinkSurat:     keySurat.Encode(),
+				Umur:          umur,
+				NamaPasien:    datapts.NamaPasien,
+				Dokter:        sur.Dokter,
+				NoCM:          keyPar.StringID(),
+				Alamat:        sur.Alamat,
+			}
+			_, err := datastore.Put(ctx, keySurat, m)
+			if err != nil {
+				log.Infof(ctx, "Gagal menyimpan surat: %v", err)
+				return
+			}
+			m.NoCM = keyPar.StringID()
+			json.NewEncoder(w).Encode(m)
+		} else {
+			datapts.TglLahir = lahir
+			datapts.Alamat = sur.Alamat
+			_, err = datastore.Put(ctx, keyPar, datapts)
+			if err != nil {
+				log.Errorf(ctx, "Gagal menyimpan data: %v", err)
+			}
+			data := &DataSuratSakit{
+				TglSurat:      time.Now().In(zone),
+				NomorSurat:    j.NomorSurat + 1,
+				LamaIstirahat: sur.LamaIstirahat,
+				Pekerjaan:     sur.Pekerjaan,
+				LinkSurat:     keySurat.Encode(),
+				Umur:          umur,
+				NamaPasien:    datapts.NamaPasien,
+				Dokter:        sur.Dokter,
+				NoCM:          keyPar.StringID(),
+				Alamat:        sur.Alamat,
+			}
+			_, err = datastore.Put(ctx, keySurat, data)
+			if err != nil {
+				log.Infof(ctx, "Gagal menyimpan surat: %v", err)
+				return
+			}
+			data.NoCM = keyPar.StringID()
+			json.NewEncoder(w).Encode(data)
+		}
+		log.Infof(ctx, "berhasil menyimpan surat")
+		break
+	}
+
+}
+func countAge(birth time.Time) string {
+	zone, _ := time.LoadLocation("Asia/Makassar")
+	today := time.Now().In(zone)
+	age := today.Year() - birth.Year()
+	if today.YearDay() < birth.YearDay() {
+		age--
+	}
+	strAge := strconv.Itoa(age)
+	return strAge
+}
+
+func getDetail(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	pts := &Pasien{}
+
+	err := json.NewDecoder(r.Body).Decode(pts)
+	if err != nil {
+		LogError(ctx, err)
+	}
+	key, err := datastore.DecodeKey(pts.LinkID)
+	dat := &DataPasien{}
+	keyPar := key.Parent()
+	log.Infof(ctx, "key parent adalah : %v", keyPar)
+	err = datastore.Get(ctx, keyPar, dat)
+	if err != nil {
+		LogError(ctx, err)
+	}
+	json.NewEncoder(w).Encode(dat)
+}
 func getCM(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	pts := &Pasien{}

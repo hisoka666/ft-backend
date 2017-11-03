@@ -16,8 +16,9 @@ import (
 func init() {
 	// http.HandleFunc("/", index)
 	// http.HandleFunc("/obat", indexObat)
-	http.HandleFunc("/deleteobat/", deleteObat)
-	http.HandleFunc("/igdbulan", igdBulan)
+	// http.HandleFunc("/deleteobat/", deleteObat)
+	// http.HandleFunc("/igdbulan", igdBulan)
+	http.HandleFunc("/tambah-ke-cun", tambahKeCun)
 }
 
 type KunjunganPasien struct {
@@ -62,7 +63,37 @@ type InputObat struct {
 	Rekomendasi    string   `json:"rekom"`
 	Dokter         string   `json:"doc"`
 }
+type Kursor struct {
+	Point string `json:"point"`
+}
 
+func tambahKeCun(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	q := datastore.NewQuery("KunjunganPasien").Filter("Hide=", false).Filter("Dokter=", "suryasedana@gmail.com").Order("-JamDatang").Offset(500).Limit(200)
+	t := q.Run(c)
+	zone, _ := time.LoadLocation("Asia/Makassar")
+	for {
+		j := &KunjunganPasien{}
+		k, err := t.Next(j)
+		if err != nil && err == datastore.Done {
+			log.Errorf(c, "End of line: %v", err)
+			break
+		}
+		if err != nil {
+			log.Errorf(c, "Kesalahan dalam membaca data: %v", err)
+			break
+		}
+		kpar := k.Parent()
+		nocm := kpar.StringID()
+		log.Infof(c, "No cm adalah: %v", nocm)
+		_, n := DatastoreKey(c, "DataPasien", nocm, "KunjunganPasien", "")
+		log.Infof(c, "Key baru adalah: %v", n)
+		j.JamDatang = j.JamDatang.In(zone)
+		j.Dokter = "sunia.raharja@gmail.com"
+		_, err = datastore.Put(c, n, j)
+		log.Infof(c, "Well done")
+	}
+}
 func igdBulan(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
 	q := datastore.NewQuery("KunjunganPasien").Filter("Hide=", false).Order("-JamDatang")
