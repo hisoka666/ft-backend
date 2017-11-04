@@ -40,13 +40,14 @@ func CekStaff(ctx context.Context, email string) (user, token, peran, link strin
 	return user, token, peran, link
 }
 
-func GetMainContent(c context.Context, user, token, link, email string) *MainView {
+func GetMainContent(c context.Context, user, token, link, peran, email string) *MainView {
 	web := &MainView{
 		Token:  token,
 		User:   user,
 		Bulan:  GetBulan(c, UserKey(c, email)),
 		Pasien: GetLast100(c, email),
 		LinkID: link,
+		Peran: peran,
 	}
 	log.Infof(c, "Link dari get main adalah: %v", web.LinkID)
 	return web

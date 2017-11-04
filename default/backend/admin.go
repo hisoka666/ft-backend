@@ -10,21 +10,22 @@ import (
 func AdminPage(c context.Context, token string) MainView {
 	staf := []Staff{}
 	st := &Staff{}
-	q := datastore.NewQuery("Staff").Filter("Peran =", "staf")
-	p := datastore.NewQuery("Staff").Filter("Peran =", "supervisor")
+	q := datastore.NewQuery("Staff")
+	// p := datastore.NewQuery("Staff").Filter("Peran =", "supervisor")
+	// r := datastore.NewQuery("Staff").Filter("Peran =", "residen")
 	// q := datastore.NewQuery("Staff")
-	s := p.Run(c)
-	for {
-		k, err := s.Next(st)
-		if err == datastore.Done {
-			break
-		}
-		if err != nil {
-			LogError(c, err)
-		}
-		st.LinkID = k.Encode()
-		staf = append(staf, *st)
-	}
+	// s := p.Run(c)
+	// for {
+	// 	k, err := s.Next(st)
+	// 	if err == datastore.Done {
+	// 		break
+	// 	}
+	// 	if err != nil {
+	// 		LogError(c, err)
+	// 	}
+	// 	st.LinkID = k.Encode()
+	// 	staf = append(staf, *st)
+	// }
 	t := q.Run(c)
 	for {
 		k, err := t.Next(st)
@@ -34,11 +35,26 @@ func AdminPage(c context.Context, token string) MainView {
 		if err != nil {
 			LogError(c, err)
 		}
-
+		if st.Peran == "admin" {
+			continue
+		}
 		st.LinkID = k.Encode()
 		staf = append(staf, *st)
 	}
 
+	// u := r.Run(c)
+	// for {
+	// 	k, err := u.Next(st)
+	// 	if err == datastore.Done {
+	// 		break
+	// 	}
+	// 	if err != nil {
+	// 		LogError(c, err)
+	// 	}
+
+	// 	st.LinkID = k.Encode()
+	// 	staf = append(staf, *st)
+	// }
 	// _, err := q.GetAll(c, &staf)
 	// if err != nil {
 	// 	LogError(c, err)

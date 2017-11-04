@@ -62,10 +62,16 @@ type LembarATS struct {
 	GCSE           string `json:"gcse"`
 	GCSV           string `json:"gcsv"`
 	GCSM           string `json:"gcsm"`
+	TglInput       time.Time `json:"input"`
+}
+type RekamMedis struct {
+    Pasien   Pasien    `json:"pasien"`
+	LembarATS LembarATS `json:"lembarats"`
 }
 
 func init() {
 	http.Handle("/simpan", CekToken(http.HandlerFunc(SimpanLembarATS)))
+	http.Handle("/get-rm-kun", CekToken(http.HandlerFunc(GetRM)))
 }
 
 func CekToken(next http.Handler) http.Handler {
@@ -154,4 +160,100 @@ func SimpanLembarATS(w http.ResponseWriter, r *http.Request) {
 		LogError(ctx, err)
 	}
 	json.NewEncoder(w).Encode(ats)
+}
+func ConvertDatastore(c context.Context, n KunjunganPasien, k *datastore.Key) *Pasien {
+	tanggal := UbahTanggal(n.JamDatang, n.ShiftJaga)
+	nocm, namapts := GetDataPts(c, k)
+
+	m := &Pasien{
+		TglKunjungan: tanggal,
+		ShiftJaga:    n.ShiftJaga,
+		NoCM:         nocm,
+		NamaPasien:   namapts,
+		Diagnosis:    n.Diagnosis,
+		ATS:          n.ATS,
+		Dept:         n.Bagian,
+		IKI:          "",
+		LinkID:       k.Encode(),
+	}
+
+	if n.GolIKI == "1" {
+		m.IKI = "1"
+	} else {
+		m.IKI = ""
+	}
+
+	return m
+}
+func GetDataPts(c context.Context, k *datastore.Key) (no, nama string) {
+	var p DataPasien
+	keypar := k.Parent()
+	err := datastore.Get(c, keypar, &p)
+	if err != nil {
+		log.Errorf(c, "error getting data: %v", err)
+	}
+	no = keypar.StringID()
+	nama = p.NamaPasien
+	return no, nama
+}
+
+func UbahTanggal(t time.Time, s string) string {
+	zone, _ := time.LoadLocation("Asia/Makassar")
+	idn := t.In(zone)
+	jam := idn.Hour()
+	tglstring := ""
+	if jam < 12 && s == "3" {
+		tglstring = idn.AddDate(0, 0, -1).Format("02-01-2006")
+	} else {
+		tglstring = idn.Format("02-01-2006")
+	}
+	return tglstring + " (" + StringShift(s) + ")"
+}
+
+func StringShift(n string) string {
+	var m string
+	switch n {
+	case "1":
+		m = "Pagi"
+	case "2":
+		m = "Sore"
+	case "3":
+		m = "Malam"
+	}
+	return m
+}
+
+func GetRM(w http.ResponseWriter, r *http.Request){
+    ctx:= appengine.NewContext(r)
+	ats := &LembarATS{}
+	json.NewDecoder(r.Body).Decode(ats)
+	defer r.Body.Close()
+	keypar, err := datastore.DecodeKey(ats.LinkID)
+	if err != nil {
+		LogError(ctx, err)
+	}
+	kun := &KunjunganPasien{}
+	err = datastore.Get(ctx, keypar, kun)
+	if err != nil {
+		LogError(ctx, err)
+	}
+	pts := ConvertDatastore(ctx, *kun, keypar)
+	q := datastore.NewQuery("LembarATS").Ancestor(keypar)
+	t := q.Run(ctx)
+	for {
+	    var at LembarATS
+		_, err := t.Next(&at)
+		if err == datastore.Done {
+		    break
+		}
+		if err != nil {
+		    LogError(ctx, err)
+			break
+		}
+		rm := &RekamMedis{
+		    Pasien: *pts,
+			LembarATS: at,
+		}
+		json.NewEncoder(w).Encode(rm)
+	}
 }

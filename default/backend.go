@@ -120,21 +120,26 @@ func login(w http.ResponseWriter, r *http.Request) {
 	log.Infof(ctx, dat["email"])
 
 	user, token, peran, link := ft.CekStaff(ctx, dat["email"])
-
+	log.Infof(ctx, "Peran adalah: %v", peran)
 	if user == "no-access" {
 		fmt.Fprintln(w, "no-access")
 	} else if peran == "admin" {
 		web := ft.AdminPage(ctx, token)
+		log.Infof(ctx, "Peran adalah: %v", web.Peran)
 		json.NewEncoder(w).Encode(web)
 	} else if peran == "supervisor" {
 		web := ft.SupervisorPage(ctx, token, user)
+		log.Infof(ctx, "Peran adalah: %v", web.Peran)
 		json.NewEncoder(w).Encode(web)
-	} else {
-		web := ft.GetMainContent(ctx, user, token, link, dat["email"])
+	} else if peran == "staf"{
+		web := ft.GetMainContent(ctx, user, token, link, peran, dat["email"])
+		log.Infof(ctx, "Peran adalah: %v", web.Peran)
 		// js := ft.ConvertJSON(web)
 		// log.Infof(ctx, string(js))
 		json.NewEncoder(w).Encode(web)
-
+	} else {
+		web := ft.ResidenPage(ctx, user, token, peran, link)
+		json.NewEncoder(w).Encode(web)
 	}
 
 }
