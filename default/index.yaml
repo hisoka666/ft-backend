@@ -7,3 +7,4 @@ indexes:
   - name: Dokter
   - name: JamDatang
     direction: desc
+  - name: Bagian

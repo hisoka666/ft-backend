@@ -1,4 +1,4 @@
-package ats
+package residen
 
 import (
 	"encoding/json"
@@ -7,14 +7,26 @@ import (
 	"net/http"
 	"time"
 
+	"google.golang.org/appengine/datastore"
+
 	"cloud.google.com/go/storage"
 	jwt "github.com/dgrijalva/jwt-go"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine"
-	"google.golang.org/appengine/datastore"
 	"google.golang.org/appengine/log"
 )
 
+func init() {
+	http.Handle("/get-new-pasien", CekToken(http.HandlerFunc(getNewPasien)))
+	http.Handle("/get-refresh", CekToken(http.HandlerFunc(getRefresh)))
+}
+
+type ListPasienResiden struct {
+	List []Pasien `json:"listpasien"`
+}
+type Staff struct {
+	Email, NamaLengkap, LinkID, Peran string
+}
 type KunjunganPasien struct {
 	Diagnosis, LinkID      string
 	GolIKI, ATS, ShiftJaga string
@@ -24,7 +36,6 @@ type KunjunganPasien struct {
 	JamDatangRiil          time.Time
 	Bagian                 string
 }
-
 type DataPasien struct {
 	NamaPasien string    `json:"namapts"`
 	NomorCM    string    `json:"nocm"`
@@ -34,6 +45,7 @@ type DataPasien struct {
 	TglLahir   time.Time `json:"tgllhr"`
 	Umur       time.Time `json:"umur"`
 }
+
 type Pasien struct {
 	StatusServer string    `json:"stat"`
 	TglKunjungan string    `json:"tgl"`
@@ -47,59 +59,16 @@ type Pasien struct {
 	LinkID       string    `json:"link"`
 	TglAsli      time.Time `json:"tglasli"`
 }
-type LembarATS struct {
-	LinkID         string    `json:"link"`
-	KeluhanUtama   string    `json:"kelut"`
-	Subyektif      string    `json:"subyektif"`
-	TDSistolik     string    `json:"tdsis"`
-	TDDiastolik    string    `json:"tddi"`
-	Nadi           string    `json:"nadi"`
-	LajuPernafasan string    `json:"rr"`
-	SuhuBadan      string    `json:"temp"`
-	LokasiNyeri    string    `json:"nyerilok"`
-	NRS            string    `json:"nrs"`
-	Keterangan     string    `json:"keterangan"`
-	GCSE           string    `json:"gcse"`
-	GCSV           string    `json:"gcsv"`
-	GCSM           string    `json:"gcsm"`
-	TglInput       time.Time `json:"input"`
-	Dokter         string    `json:"dokter"`
-}
-type RekamMedis struct {
-	Pasien    Pasien    `json:"pasien"`
-	LembarATS LembarATS `json:"lembarats"`
-}
-
-func init() {
-	http.Handle("/simpan", CekToken(http.HandlerFunc(SimpanLembarATS)))
-	http.Handle("/get-rm-kun", CekToken(http.HandlerFunc(GetRM)))
-}
 
 func CekToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := appengine.NewContext(r)
-
-		// signKey, err := GetKey(ctx)
+		signKey, err := GetKey(ctx)
 		//*email = ""
-		client, err := storage.NewClient(ctx)
-		if err != nil {
-			log.Errorf(ctx, "terjadi kesalahan dalam membuat client baru: %v", err)
-		}
-		// harus buat object untuk akses bucket
-		obj := client.Bucket("igdsanglah").Object("secretkey")
-		// membaca secret key dari cloud storage
-		rc, err := obj.NewReader(ctx)
-		// membaca secret key yang sudah diperoleh
-		signKey, err := ioutil.ReadAll(rc)
-		if err != nil {
-			log.Errorf(ctx, "terjadi kesalahan saat membaca key: %v", err)
-		}
-		// jangan lupa close file
-		defer rc.Close()
 
 		if err != nil {
-			// LogError(ctx, err)
-			log.Errorf(ctx, "Error Fetching Key form Bucket: %v", err)
+			LogError(ctx, err)
+			// log.Errorf(ctx, "Error Fetching Key form Bucket: %v", err)
 			return
 		}
 
@@ -117,7 +86,7 @@ func CekToken(next http.Handler) http.Handler {
 			log.Errorf(ctx, "Sessions Expired: %v", err)
 			//todo: fungsi untuk kembali ke halaman awal
 			// http.RedirectHandler("http://localhost:9090", 303)
-			// LogError(ctx, err)
+			LogError(ctx, err)
 			fmt.Fprintln(w, "token-expired")
 			return
 		}
@@ -134,53 +103,37 @@ func CekToken(next http.Handler) http.Handler {
 	})
 }
 
-// func GetKey(ctx context.Context) ([]byte, error) {
-// 	//buat context untuk akses cloud storage
-// 	// ctx := appengine.NewContext(r)
-// 	//buat client dari context untuk akses cloud storage
-// 	client, err := storage.NewClient(ctx)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	// harus buat object untuk akses bucket
-// 	obj := client.Bucket("igdsanglah").Object("secretkey")
-// 	// membaca secret key dari cloud storage
-// 	rc, err := obj.NewReader(ctx)
-// 	// membaca secret key yang sudah diperoleh
-// 	key, err := ioutil.ReadAll(rc)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	// jangan lupa close file
-// 	defer rc.Close()
-// 	// mengembalikan secret key dan error (klo ada)
-// 	return key, nil
-// }
+func GetKey(ctx context.Context) ([]byte, error) {
+	//buat context untuk akses cloud storage
+	// ctx := appengine.NewContext(r)
+	//buat client dari context untuk akses cloud storage
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// harus buat object untuk akses bucket
+	obj := client.Bucket("igdsanglah").Object("secretkey")
+	// membaca secret key dari cloud storage
+	rc, err := obj.NewReader(ctx)
+	// membaca secret key yang sudah diperoleh
+	key, err := ioutil.ReadAll(rc)
+	if err != nil {
+		return nil, err
+	}
+	// jangan lupa close file
+	defer rc.Close()
+	// mengembalikan secret key dan error (klo ada)
+	return key, nil
+}
 
 func LogError(c context.Context, e error) {
 	log.Errorf(c, "Error is: %v", e)
 	return
 }
-
-func SimpanLembarATS(w http.ResponseWriter, r *http.Request) {
-	ctx := appengine.NewContext(r)
-	ats := &LembarATS{}
-	json.NewDecoder(r.Body).Decode(ats)
-	defer r.Body.Close()
-	keypar, err := datastore.DecodeKey(ats.LinkID)
-	if err != nil {
-		LogError(ctx, err)
-	}
-	key := datastore.NewIncompleteKey(ctx, "LembarATS", keypar)
-	_, err = datastore.Put(ctx, key, ats)
-	if err != nil {
-		LogError(ctx, err)
-	}
-	json.NewEncoder(w).Encode(ats)
-}
 func ConvertDatastore(c context.Context, n KunjunganPasien, k *datastore.Key) *Pasien {
 	tanggal := UbahTanggal(n.JamDatang, n.ShiftJaga)
 	nocm, namapts := GetDataPts(c, k)
+	zone, _ := time.LoadLocation("Asia/Makassar")
 
 	m := &Pasien{
 		TglKunjungan: tanggal,
@@ -192,6 +145,7 @@ func ConvertDatastore(c context.Context, n KunjunganPasien, k *datastore.Key) *P
 		Dept:         n.Bagian,
 		IKI:          "",
 		LinkID:       k.Encode(),
+		TglAsli:      n.JamDatang.In(zone),
 	}
 
 	if n.GolIKI == "1" {
@@ -202,6 +156,7 @@ func ConvertDatastore(c context.Context, n KunjunganPasien, k *datastore.Key) *P
 
 	return m
 }
+
 func GetDataPts(c context.Context, k *datastore.Key) (no, nama string) {
 	var p DataPasien
 	keypar := k.Parent()
@@ -239,42 +194,98 @@ func StringShift(n string) string {
 	}
 	return m
 }
-
-func GetRM(w http.ResponseWriter, r *http.Request) {
+func getNewPasien(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
-	// log.Infof(ctx, "get-rm fired!")
-	ats := &LembarATS{}
-	json.NewDecoder(r.Body).Decode(ats)
-	defer r.Body.Close()
-	log.Infof(ctx, "link adalah: %v", ats.LinkID)
-	keypar, err := datastore.DecodeKey(ats.LinkID)
-	if err != nil {
-		LogError(ctx, err)
-	}
-	log.Infof(ctx, "keypar adalah: %v", keypar)
 	kun := &KunjunganPasien{}
-	err = datastore.Get(ctx, keypar, kun)
-	if err != nil {
-		LogError(ctx, err)
+	json.NewDecoder(r.Body).Decode(kun)
+	defer r.Body.Close()
+	log.Infof(ctx, "Jam datang kiriman dari client: %v", kun.JamDatang)
+	st := datastore.NewQuery("Staff").Filter("Email =", kun.Dokter)
+	dept := ""
+	f := &dept
+	s := st.Run(ctx)
+	for {
+		n := &Staff{}
+		_, err := s.Next(n)
+		if err != nil {
+			break
+		}
+		*f = n.Peran[8:]
 	}
-	pts := ConvertDatastore(ctx, *kun, keypar)
-	log.Infof(ctx, "Nama pasien adalah: %v", pts.NamaPasien)
-	rm := &RekamMedis{
-		Pasien: *pts,
-	}
-	q := datastore.NewQuery("LembarATS").Ancestor(keypar)
+	log.Infof(ctx, "Peran dari client : %v", dept)
+	kn := []Pasien{}
+	q := datastore.NewQuery("KunjunganPasien").Order("-JamDatang").Filter("Hide =", false)
 	t := q.Run(ctx)
 	for {
-		var at LembarATS
-		_, err := t.Next(&at)
-		if err == datastore.Done {
-			break
-		}
+		j := &KunjunganPasien{}
+		k, err := t.Next(j)
 		if err != nil {
-			LogError(ctx, err)
 			break
 		}
-		rm.LembarATS = at
+		log.Infof(ctx, "Bagian pasien adalah: %v", j.Bagian)
+		if j.Bagian != dept {
+			continue
+		}
+		p := ConvertDatastore(ctx, *j, k)
+		log.Infof(ctx, "Jam datang pasien adalah: %v", p.TglAsli)
+		if p.TglAsli.Before(kun.JamDatang) {
+			break
+		}
+		log.Errorf(ctx, "data pasien baru masuk: %v", p.NamaPasien)
+
+		kn = append(kn, *p)
 	}
-	json.NewEncoder(w).Encode(rm)
+	// log.Infof(ctx, "banyak pasien baru adalah: %v", len(kn))
+	// for _, m := range kn {
+	// 	log.Infof(ctx, "nama pasien adalah: %v", m.NamaPasien)
+	// }
+	list := &ListPasienResiden{
+		List: kn,
+	}
+	json.NewEncoder(w).Encode(list)
+}
+
+func getRefresh(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	kun := &KunjunganPasien{}
+	json.NewDecoder(r.Body).Decode(kun)
+	defer r.Body.Close()
+	log.Infof(ctx, "Jam datang kiriman dari client: %v", kun.JamDatang)
+	st := datastore.NewQuery("Staff").Filter("Email =", kun.Dokter)
+	dept := ""
+	f := &dept
+	s := st.Run(ctx)
+	for {
+		n := &Staff{}
+		_, err := s.Next(n)
+		if err != nil {
+			break
+		}
+		*f = n.Peran[8:]
+	}
+	kn := []Pasien{}
+	q := datastore.NewQuery("KunjunganPasien").Order("-JamDatang").Filter("Hide =", false)
+	t := q.Run(ctx)
+	for {
+		j := &KunjunganPasien{}
+		k, err := t.Next(j)
+		if err != nil {
+			break
+		}
+		log.Infof(ctx, "Bagian pasien adalah: %v", j.Bagian)
+		if j.Bagian != dept {
+			continue
+		}
+		p := ConvertDatastore(ctx, *j, k)
+		kn = append(kn, *p)
+		if len(kn) >= 100 {
+			break
+		}
+	}
+
+	list := &ListPasienResiden{
+		List: kn,
+	}
+	json.NewEncoder(w).Encode(list)
+
 }

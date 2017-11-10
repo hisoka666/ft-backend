@@ -47,7 +47,7 @@ func GetMainContent(c context.Context, user, token, link, peran, email string) *
 		Bulan:  GetBulan(c, UserKey(c, email)),
 		Pasien: GetLast100(c, email),
 		LinkID: link,
-		Peran: peran,
+		Peran:  peran,
 	}
 	log.Infof(c, "Link dari get main adalah: %v", web.LinkID)
 	return web
@@ -118,7 +118,7 @@ func GetLast100(c context.Context, email string) []Pasien {
 func ConvertDatastore(c context.Context, n KunjunganPasien, k *datastore.Key) *Pasien {
 	tanggal := UbahTanggal(n.JamDatang, n.ShiftJaga)
 	nocm, namapts := GetDataPts(c, k)
-
+	zone, _ := time.LoadLocation("Asia/Makassar")
 	m := &Pasien{
 		TglKunjungan: tanggal,
 		ShiftJaga:    n.ShiftJaga,
@@ -129,6 +129,7 @@ func ConvertDatastore(c context.Context, n KunjunganPasien, k *datastore.Key) *P
 		Dept:         n.Bagian,
 		IKI:          "",
 		LinkID:       k.Encode(),
+		TglAsli:      n.JamDatang.In(zone),
 	}
 
 	if n.GolIKI == "1" {
